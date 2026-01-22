@@ -1,3 +1,30 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+const code = ref('')
+const loading = ref(false)
+
+async function handleLogin() {
+  if (code.value.length !== 6) return
+  
+  loading.value = true
+  try {
+    await authStore.login(code.value)
+    router.push('/')
+  } catch (error) {
+    console.error('Login failed', error)
+    alert('Invalid verification code')
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="login-wrapper">
     <div class="login-card">

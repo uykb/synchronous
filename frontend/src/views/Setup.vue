@@ -1,3 +1,59 @@
+<script setup lang="ts">
+import { ref, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import QRCode from 'qrcode'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+const password = ref('')
+const setupData = ref<any>(null)
+const code = ref('')
+const loading = ref(false)
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
+
+async function handleSetup() {
+  if (!password.value) return
+  loading.value = true
+  try {
+    const data = await authStore.setup(password.value)
+    setupData.value = data
+    await nextTick()
+    if (qrCanvas.value && data.totp_url) {
+      await QRCode.toCanvas(qrCanvas.value, data.totp_url, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      })
+    }
+  } catch (error) {
+    console.error('Setup failed', error)
+    alert('Failed to initialize setup')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleVerify() {
+  if (code.value.length !== 6) return
+  
+  loading.value = true
+  try {
+    await authStore.login(code.value)
+    router.push('/')
+  } catch (error) {
+    console.error('Verification failed', error)
+    alert('Invalid verification code')
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="setup-wrapper">
     <div class="setup-card">

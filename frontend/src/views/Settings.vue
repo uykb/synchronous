@@ -1,3 +1,72 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useTradingStore } from '../stores/trading'
+
+const tradingStore = useTradingStore()
+
+const config = ref({
+  binance: {
+    api_key: '',
+    api_secret: '',
+    testnet: false
+  },
+  okx: {
+    api_key: '',
+    api_secret: '',
+    passphrase: ''
+  }
+})
+
+const syncItems = ref([
+  { id: 1, name: 'BTC Arbitrage', symbol: 'BTC-USDT', source: 'binance', targets: ['okx', 'bybit'] },
+  { id: 2, name: 'ETH Sync', symbol: 'ETH-USDT', source: 'okx', targets: ['bybit'] }
+])
+
+const showAddModal = ref(false)
+const newItem = ref({
+  name: '',
+  symbol: '',
+  source: 'binance',
+  targets: [] as string[]
+})
+
+function saveConfig() {
+  console.log('Saving config:', config.value)
+  alert('Configuration saved successfully!')
+}
+
+function restartBot() {
+  console.log('Restarting bot...')
+  if (tradingStore.isRunning) {
+    tradingStore.toggleBot() // stop
+    setTimeout(() => tradingStore.toggleBot(), 1000) // start
+  }
+  alert('Bot restart command sent.')
+}
+
+function removeSyncItem(id: number) {
+  syncItems.value = syncItems.value.filter(item => item.id !== id)
+}
+
+function addSyncItem() {
+  if (!newItem.value.name || !newItem.value.symbol) return
+  
+  syncItems.value.push({
+    ...newItem.value,
+    id: Date.now(),
+    targets: [...newItem.value.targets]
+  })
+  
+  showAddModal.value = false
+  newItem.value = {
+    name: '',
+    symbol: '',
+    source: 'binance',
+    targets: []
+  }
+}
+</script>
+
 <template>
   <div class="settings">
     <header class="settings-header">
