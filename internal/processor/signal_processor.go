@@ -2,9 +2,9 @@ package processor
 
 import (
 	"context"
-	"crypto-sync-bot/internal/api"
 	"crypto-sync-bot/internal/config"
 	"crypto-sync-bot/internal/database"
+	"crypto-sync-bot/internal/metrics"
 	"crypto-sync-bot/internal/models"
 	"crypto-sync-bot/internal/risk"
 	"encoding/json"
@@ -80,7 +80,7 @@ func (p *SignalProcessor) processSignals() {
 func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage) {
 	start := time.Now()
 	defer func() {
-		api.OrderLatency.Observe(time.Since(start).Seconds())
+		metrics.OrderLatency.Observe(time.Since(start).Seconds())
 	}()
 
 	payload, ok := msg.Values["payload"].(string)
@@ -134,9 +134,9 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 		}
 		if okxErr != nil {
 			log.Printf("OKX Execution Error: %v", okxErr)
-			api.OrdersCounter.WithLabelValues("okx", "failed").Inc()
+			metrics.OrdersCounter.WithLabelValues("okx", "failed").Inc()
 		} else {
-			api.OrdersCounter.WithLabelValues("okx", "success").Inc()
+			metrics.OrdersCounter.WithLabelValues("okx", "success").Inc()
 		}
 	}()
 
@@ -149,9 +149,9 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 		}
 		if bybitErr != nil {
 			log.Printf("Bybit Execution Error: %v", bybitErr)
-			api.OrdersCounter.WithLabelValues("bybit", "failed").Inc()
+			metrics.OrdersCounter.WithLabelValues("bybit", "failed").Inc()
 		} else {
-			api.OrdersCounter.WithLabelValues("bybit", "success").Inc()
+			metrics.OrdersCounter.WithLabelValues("bybit", "success").Inc()
 		}
 	}()
 
