@@ -34,6 +34,7 @@ type Order struct {
 	Quantity     float64
 	Status       string
 	ErrorMessage string
+	Timestamp    int64
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
