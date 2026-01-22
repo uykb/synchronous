@@ -36,7 +36,10 @@
           </div>
         </div>
         
-        <button class="primary-btn" @click="saveConfig">Save Exchanges</button>
+        <div class="actions-row">
+          <button class="primary-btn" @click="saveConfig">Save Exchanges</button>
+          <button class="secondary-btn" @click="restartBot">Restart Bot</button>
+        </div>
       </div>
     </section>
 
@@ -122,9 +125,19 @@ const loadData = async () => {
 const saveConfig = async () => {
   try {
     await client.put('/config', config.value)
-    alert('Config saved')
+    alert('Config saved. Please restart the bot for changes to take effect.')
   } catch (e) {
     alert('Failed to save config')
+  }
+}
+
+const restartBot = async () => {
+  if (!confirm('Are you sure you want to restart the bot? This will interrupt active connections.')) return
+  try {
+    await client.post('/restart')
+    alert('Bot is restarting...')
+  } catch (e) {
+    alert('Failed to restart bot')
   }
 }
 
@@ -170,7 +183,10 @@ input[type="password"], input[type="text"], select { width: 100%; padding: 8px; 
 .add-card:hover { border-color: #646cff; color: #646cff; }
 .add-icon { font-size: 2rem; margin-bottom: 5px; }
 
+.actions-row { display: flex; gap: 10px; }
 .primary-btn { background: #646cff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+.secondary-btn { background: #444; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+.secondary-btn:hover { background: #555; }
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal { background: #242424; padding: 30px; border-radius: 8px; width: 400px; }
 .modal input, .modal select { margin-bottom: 15px; }

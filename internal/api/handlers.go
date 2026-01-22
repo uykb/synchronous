@@ -6,6 +6,8 @@ import (
 	"crypto-sync-bot/internal/models"
 	"crypto-sync-bot/internal/processor"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +27,7 @@ func (a *API) SetupRoutes(r *gin.Engine) {
 		api.GET("/status", a.GetStatus)
 		api.POST("/auth/setup", a.SetupAuth)
 		api.POST("/auth/verify", a.VerifyAuth)
+		api.POST("/restart", a.Restart)
 
 		// Webhook route with HMAC verification
 		api.POST("/signals", HMACVerification(a.cfg.WebhookSecret), a.PostSignal)
@@ -118,6 +121,29 @@ func (a *API) VerifyAuth(c *gin.Context) {
 
 	token, _ := auth.GenerateToken("admin")
 	c.JSON(http.StatusOK, gin.H{"token": token})
+}
+
+func (a *API) Restart(c *gin.Context) {
+	// Check auth if configured
+	if a.cfg.Auth.IsConfigured {
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
+			return
+		}
+		if _, err := auth.ValidateToken(token); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Restarting..."})
+	
+	// Exit in a goroutine to allow response to be sent
+	go func() {
+		time.Sleep(1 * time.Second)
+		os.Exit(0)
+	}()
 }
 
 func (a *API) GetConfig(c *gin.Context) {

@@ -22,4 +22,5 @@ services:
       - STOP_LOSS_RATIO=${STOP_LOSS_RATIO:-0.05}
     volumes:
       - ./logs:/app/logs
+      - ./config.json:/app/config.json
 
