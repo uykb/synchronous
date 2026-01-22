@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/viper"
 	"crypto-sync-bot/internal/auth"
+	"crypto-sync-bot/internal/database"
 )
 
 type AuthConfig struct {
@@ -60,12 +61,22 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	viper.SetConfigName("config")
-	viper.SetConfigType("json") // Prefer JSON for our dynamic config
-	viper.AddConfigPath(".")
+	// 1. Try to load from Database first
+	if database.MySQLDB != nil {
+		data, err := database.LoadConfigRaw()
+		if err == nil && len(data) > 0 {
+			var cfg Config
+			if err := json.Unmarshal(data, &cfg); err == nil {
+				log.Println("Loaded config from MySQL")
+				return &cfg, nil
+			}
+		}
+	}
+
+	// 2. Fallback to Environment Variables (Viper)
 	viper.AutomaticEnv()
 
-	// Bind environment variables (kept for backward compatibility)
+	// Bind environment variables
 	viper.BindEnv("binance.api_key", "BINANCE_API_KEY")
 	viper.BindEnv("binance.api_secret", "BINANCE_API_SECRET")
 	viper.BindEnv("binance.testnet", "BINANCE_TESTNET")
@@ -86,17 +97,19 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("sync.order_timeout", 30)
 	viper.SetDefault("sync.max_retries", 3)
 
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, err
-		}
-		log.Println("No config file found, using environment variables and defaults")
+	var cfg Config
+	// Viper unmarshal from Env
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, err
 	}
 
-	var cfg Config
-	err := viper.Unmarshal(&cfg)
-	if err != nil {
-		return nil, err
+	// 3. Save initialized config to DB for next time
+	if database.MySQLDB != nil {
+		if err := database.SaveConfig(&cfg); err != nil {
+			log.Printf("Warning: Failed to save initial config to DB: %v", err)
+		} else {
+			log.Println("Initialized config in MySQL from Environment")
+		}
 	}
 
 	if key := os.Getenv("ENCRYPTION_KEY"); key != "" {
@@ -148,10 +161,14 @@ func (c *Config) Save() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if database.MySQLDB != nil {
+		return database.SaveConfig(c)
+	}
+
+	// Fallback to file if DB not available (e.g. local dev without DB)
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
-
 	return os.WriteFile("config.json", data, 0644)
 }

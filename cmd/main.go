@@ -19,6 +19,11 @@ import (
 )
 
 func main() {
+	// 0. Initialize MySQL (for Config)
+	if err := database.InitMySQL(); err != nil {
+		log.Printf("Warning: MySQL initialization failed (using Env/File config): %v", err)
+	}
+
 	// 1. Load Config
 	cfg, err := config.LoadConfig()
 	if err != nil {

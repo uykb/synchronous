@@ -20,7 +20,8 @@ services:
       - POSITION_RATIO=${POSITION_RATIO:-1.0}
       - MAX_POSITION=${MAX_POSITION:-1.0}
       - STOP_LOSS_RATIO=${STOP_LOSS_RATIO:-0.05}
+      - MYSQL_DSN=${MYSQL_DSN}
     volumes:
       - ./logs:/app/logs
-      - ./config.json:/app/config.json
+
 

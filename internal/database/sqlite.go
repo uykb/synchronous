@@ -31,6 +31,19 @@ func InitSQLite(path string) error {
 }
 
 func SaveOrderResult(res *models.OrderResult) error {
+	if MySQLDB != nil {
+		order := Order{
+			Exchange:      res.Exchange,
+			Symbol:        res.Symbol,
+			OrderID:       res.OrderID,
+			Status:        res.Status,
+			ErrorMessage:  res.ErrorMessage,
+			Timestamp:     res.Timestamp,
+			// Map other fields if needed
+		}
+		return MySQLDB.Create(&order).Error
+	}
+
 	query := `INSERT INTO orders (exchange, symbol, order_id, status, error_message, timestamp) VALUES (?, ?, ?, ?, ?, ?)`
 	_, err := DB.Exec(query, res.Exchange, res.Symbol, res.OrderID, res.Status, res.ErrorMessage, res.Timestamp)
 	return err

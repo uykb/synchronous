@@ -15,6 +15,8 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/sony/gobreaker v1.0.0
 	golang.org/x/crypto v0.47.0
+	gorm.io/driver/mysql v1.5.4
+	gorm.io/gorm v1.25.7
 )
 
 require (
