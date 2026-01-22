@@ -86,7 +86,7 @@ func (b *BinanceListener) connectWebSocket() {
 				}
 			}(listenKey)
 
-			doneC, stopC, err := futures.WsFuturesUserDataServe(listenKey, func(event *futures.WsFuturesUserDataEvent) {
+			doneC, stopC, err := futures.WsUserDataServe(listenKey, func(event *futures.WsUserDataEvent) {
 				if event.Event == "ORDER_TRADE_UPDATE" {
 					trade := event.OrderTradeUpdate
 					if trade.Status == "FILLED" && trade.Symbol == b.config.Sync.Symbol {

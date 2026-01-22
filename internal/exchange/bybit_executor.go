@@ -46,13 +46,13 @@ func (e *BybitExecutor) PlaceOrder(signal *models.TradingSignal) (*models.OrderR
 	}
 
 	// Map Symbol (Bybit uses BTCUSDT usually for Linear)
-	symbol := bybit.SymbolUSDT(signal.Symbol) // Assuming signal.Symbol is like "BTCUSDT"
+	symbol := bybit.SymbolV5(signal.Symbol) // Assuming signal.Symbol is like "BTCUSDT"
 
 	// Create Order
 	// Using Unified Margin or Linear Futures API
 	res, err := e.client.V5().Order().CreateOrder(bybit.V5CreateOrderParam{
 		Category: bybit.CategoryV5Linear,
-		Symbol:   bybit.SymbolV5(symbol),
+		Symbol:   symbol,
 		Side:     bybit.Side(side),
 		OrderType: bybit.OrderType(orderType),
 		Qty:      fmt.Sprintf("%f", signal.Quantity),
@@ -80,13 +80,14 @@ func (e *BybitExecutor) PlaceOrder(signal *models.TradingSignal) (*models.OrderR
 		Exchange:  "Bybit",
 		Symbol:    signal.Symbol,
 		Status:    "success",
-		OrderID:   res.Result.OrderId,
+		OrderID:   res.Result.OrderID,
 		Timestamp: signal.Timestamp,
 	}, nil
 }
 
 func (e *BybitExecutor) GetOrder(orderID, symbol string) (*models.OrderResult, error) {
-	res, err := e.client.V5().Order().GetHistory(bybit.V5GetHistoryParam{
+	// Use GetOpenOrders to check status (Note: Filled orders might move to History)
+	res, err := e.client.V5().Order().GetOpenOrders(bybit.V5GetOpenOrdersParam{
 		Category: bybit.CategoryV5Linear,
 		Symbol:   bybit.SymbolV5(symbol),
 		OrderId:  &orderID,
@@ -95,13 +96,15 @@ func (e *BybitExecutor) GetOrder(orderID, symbol string) (*models.OrderResult, e
 		return nil, err
 	}
 	if len(res.Result.List) == 0 {
-		return nil, fmt.Errorf("order not found")
+		// If not in open orders, check history
+		// Note: GetHistory might be needed here if supported
+		return nil, fmt.Errorf("order not found in open orders")
 	}
 	order := res.Result.List[0]
 	return &models.OrderResult{
 		Exchange: "Bybit",
 		Symbol:   symbol,
-		OrderID:  order.OrderId,
+		OrderID:  order.OrderID,
 		Status:   string(order.OrderStatus),
 	}, nil
 }
