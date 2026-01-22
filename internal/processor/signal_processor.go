@@ -179,7 +179,7 @@ func (p *SignalProcessor) handleFailure(ctx context.Context, msg redis.XMessage)
 
 	deliveryCount := int64(0)
 	if err == nil && len(pending) > 0 {
-		deliveryCount = pending[0].TimesDelivered
+		deliveryCount = pending[0].RetryCount
 	}
 
 	if deliveryCount >= 3 {
