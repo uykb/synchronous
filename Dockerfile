@@ -6,9 +6,12 @@ WORKDIR /app
 # Install git and ssl certificates
 RUN apk add --no-cache git ca-certificates
 
-# Copy go.mod and go.sum first to leverage Docker cache
+# Copy dependency files
 COPY go.mod go.sum ./
-RUN go mod download
+
+# Ensure dependencies are tidy and downloaded
+# We run tidy to fix any missing checksums that might occur due to environment differences
+RUN go mod tidy
 
 # Copy source code
 COPY . .
@@ -27,7 +30,7 @@ RUN apk add --no-cache ca-certificates
 # Copy binary from builder
 COPY --from=builder /app/crypto-sync-bot .
 
-# Copy config if exists (optional if using ENV)
-# COPY config.yaml . 
+# The application listens on 8080
+EXPOSE 8080
 
 CMD ["./crypto-sync-bot"]
