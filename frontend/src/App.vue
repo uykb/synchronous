@@ -12,54 +12,162 @@ const logout = () => {
 </script>
 
 <template>
-  <nav class="nav-bar">
-    <div class="nav-brand">CryptoSyncBot</div>
-    <div class="nav-links" v-if="auth.isAuthenticated">
-      <router-link to="/">Dashboard</router-link>
-      <router-link to="/settings">Settings</router-link>
-      <a href="#" @click.prevent="logout">Logout</a>
-    </div>
-  </nav>
-  
-  <main class="content">
-    <router-view></router-view>
-  </main>
+  <div class="app-layout">
+    <nav class="nav-bar">
+      <div class="nav-container">
+        <div class="nav-brand">
+          <div class="brand-logo">CSB</div>
+          <span>CryptoSyncBot</span>
+        </div>
+        <div class="nav-links" v-if="auth.isAuthenticated">
+          <router-link to="/" class="nav-link">
+            <span class="link-icon">📊</span> Dashboard
+          </router-link>
+          <router-link to="/settings" class="nav-link">
+            <span class="link-icon">⚙️</span> Settings
+          </router-link>
+          <button @click="logout" class="logout-btn">
+            Logout
+          </button>
+        </div>
+      </div>
+    </nav>
+    
+    <main class="content-wrapper">
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
+    </main>
+  </div>
 </template>
 
 <style>
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+.app-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  height: 72px;
+  display: flex;
+  align-items: center;
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  background: #1a1a1a;
-  border-bottom: 1px solid #333;
 }
 
 .nav-brand {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #646cff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
 }
 
-.nav-links a {
-  margin-left: 20px;
-  text-decoration: none;
-  color: #888;
-  transition: color 0.3s;
+.brand-logo {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: #000;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 900;
 }
 
-.nav-links a:hover, .nav-links a.router-link-active {
-  color: #646cff;
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.content {
-  padding: 20px;
+.nav-link {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+  background: var(--surface-color);
+}
+
+.nav-link.router-link-active {
+  color: var(--primary-color);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.logout-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 0.4rem 1rem;
+  font-size: 0.875rem;
+}
+
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.content-wrapper {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 2rem 1.5rem;
+}
+
+/* Page Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (max-width: 640px) {
+  .nav-container {
+    padding: 0 1rem;
+  }
+  .nav-brand span {
+    display: none;
+  }
+  .nav-link span.link-icon {
+    font-size: 1.25rem;
+  }
+  .nav-link {
+    padding: 0.5rem;
+  }
 }
 </style>
