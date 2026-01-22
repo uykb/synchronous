@@ -91,7 +91,7 @@ func (b *BinanceListener) connectWebSocket() {
 					trade := event.OrderTradeUpdate
 					if trade.Status == "FILLED" && trade.Symbol == b.config.Sync.Symbol {
 						signal := &models.TradingSignal{
-							SignalID:  strconv.FormatInt(trade.OrderID, 10),
+							SignalID:  strconv.FormatInt(trade.ID, 10),
 							Symbol:    trade.Symbol,
 							Side:      string(trade.Side),
 							OrderType: string(trade.Type),

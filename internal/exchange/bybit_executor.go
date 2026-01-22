@@ -46,13 +46,13 @@ func (e *BybitExecutor) PlaceOrder(signal *models.TradingSignal) (*models.OrderR
 	}
 
 	// Map Symbol (Bybit uses BTCUSDT usually for Linear)
-	symbol := bybit.SymbolV5(signal.Symbol) // Assuming signal.Symbol is like "BTCUSDT"
+	symbolStr := bybit.SymbolV5(signal.Symbol) // Assuming signal.Symbol is like "BTCUSDT"
 
 	// Create Order
 	// Using Unified Margin or Linear Futures API
 	res, err := e.client.V5().Order().CreateOrder(bybit.V5CreateOrderParam{
 		Category: bybit.CategoryV5Linear,
-		Symbol:   symbol,
+		Symbol:   &symbolStr,
 		Side:     bybit.Side(side),
 		OrderType: bybit.OrderType(orderType),
 		Qty:      fmt.Sprintf("%f", signal.Quantity),
@@ -87,9 +87,10 @@ func (e *BybitExecutor) PlaceOrder(signal *models.TradingSignal) (*models.OrderR
 
 func (e *BybitExecutor) GetOrder(orderID, symbol string) (*models.OrderResult, error) {
 	// Use GetOpenOrders to check status (Note: Filled orders might move to History)
+	symbolStr := bybit.SymbolV5(symbol)
 	res, err := e.client.V5().Order().GetOpenOrders(bybit.V5GetOpenOrdersParam{
 		Category: bybit.CategoryV5Linear,
-		Symbol:   bybit.SymbolV5(symbol),
+		Symbol:   &symbolStr,
 		OrderID:  &orderID,
 	})
 	if err != nil {
