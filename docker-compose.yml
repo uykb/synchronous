@@ -23,11 +23,3 @@ services:
     volumes:
       - ./logs:/app/logs
 
-  frontend:
-    build: ./frontend
-    container_name: crypto-sync-bot-frontend
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      - crypto-sync-bot
