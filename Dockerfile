@@ -6,20 +6,12 @@ WORKDIR /app
 # Install git and ssl certificates
 RUN apk add --no-cache git ca-certificates
 
-# Build Stage
-FROM golang:1.21-alpine AS builder
+# Copy go.mod and go.sum first to leverage Docker cache
+COPY go.mod go.sum ./
+RUN go mod download
 
-WORKDIR /app
-
-# Install git and ssl certificates
-RUN apk add --no-cache git ca-certificates
-
-# Copy source code first to allow go mod tidy to see imports
+# Copy source code
 COPY . .
-
-# Initialize/Tidy the module to resolve dependencies
-# We ignore the existing go.mod versions and let tidy resolve them based on imports
-RUN go mod tidy
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o crypto-sync-bot ./cmd/main.go
