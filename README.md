@@ -1,50 +1,50 @@
 # Crypto-Sync-Bot
 
-A real-time cryptocurrency trading signal synchronization bot that listens to trading signals and executes orders across multiple exchanges (Binance, OKX, Bybit).
+一个实时加密货币交易信号同步机器人，监听交易信号并在多个交易所（Binance, OKX, Bybit）自动执行订单。
 
-## Architecture
+## 架构设计
 
-The project uses a decoupled architecture for optimal performance and deployment flexibility:
+本项目采用前后端分离架构，以实现最佳性能和灵活部署：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Crypto-Sync-Bot                          │
 ├────────────────────────────┬────────────────────────────────────┤
-│      Frontend (Vercel)     │         Backend (Docker)           │
+│      前端 (Vercel)         │         后端 (Docker)              │
 │   Vue 3 + TypeScript       │       Go 1.24 + Redis              │
-│   - Dashboard UI           │   - Signal Processing              │
-│   - Settings Panel         │   - Exchange Adapters              │
-│   - Real-time Charts       │   - Risk Management                │
+│   - 仪表盘 UI              │   - 信号处理                       │
+│   - 设置面板               │   - 交易所适配器                   │
+│   - 实时图表               │   - 风险管理                       │
 │            ↓               │                ↓                   │
-│      Vercel Edge           │        Docker Container            │
-│   (Proxy /api -> Backend)  │      (Exposes Port 8080)           │
+│      Vercel Edge           │        Docker 容器                 │
+│   (代理 /api -> 后端)      │      (暴露 8080 端口)              │
 └────────────────────────────┴────────────────────────────────────┘
 ```
 
-## Tech Stack
+## 技术栈
 
-| Layer | Technology | Purpose |
+| 层级 | 技术 | 用途 |
 |-------|------------|---------|
-| **Backend** | Go 1.24 | High-performance signal processing & execution |
-| **Frontend** | Vue 3 + TypeScript | Reactive dashboard & configuration UI |
-| **Database** | Redis + SQLite | Message queue (Streams) & persistence |
-| **Deployment** | Docker + Vercel | Containerized backend, Serverless frontend |
+| **后端** | Go 1.24 | 高性能信号处理与订单执行 |
+| **前端** | Vue 3 + TypeScript | 响应式仪表盘与配置界面 |
+| **数据库** | MySQL + Redis | 配置/数据持久化与消息队列 |
+| **部署** | Docker + Vercel | 容器化后端，Serverless 前端 |
 
-## Prerequisites
+## 前置要求
 
-- **Docker** & **Docker Compose** (for backend)
-- **Node.js** / **Bun** (for local frontend development)
-- **Vercel Account** (for frontend deployment)
+- **Docker** & **Docker Compose** (用于后端部署)
+- **MySQL** (外部数据库，用于持久化配置)
+- **Vercel 账号** (用于前端部署)
 
-## 🚀 Deployment Guide
+## 🚀 部署指南
 
-### 1. Backend Deployment (Docker)
+### 1. 后端部署 (Docker)
 
-The backend is containerized and available via GitHub Container Registry.
+后端已容器化，可直接从 GitHub Container Registry 拉取。
 
-**Option A: Using Docker Compose (Recommended)**
+**推荐方式：使用 Docker Compose**
 
-1. Create a `docker-compose.yml` file on your server:
+1. 在服务器上创建 `docker-compose.yml` 文件：
 
 ```yaml
 version: '3.8'
@@ -57,15 +57,12 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - MYSQL_DSN=${MYSQL_DSN}
+      - REDIS_ADDR=redis:6379
+      # 初始配置 (首次启动时写入数据库)
       - BINANCE_API_KEY=${BINANCE_API_KEY}
       - BINANCE_API_SECRET=${BINANCE_API_SECRET}
-      - BINANCE_TESTNET=false
-      - BYBIT_API_KEY=${BYBIT_API_KEY}
-      - BYBIT_API_SECRET=${BYBIT_API_SECRET}
       - SYMBOL=BTC-USDT
-      - POSITION_RATIO=1.0
-    volumes:
-      - ./data:/app/data
     depends_on:
       - redis
 
@@ -74,100 +71,98 @@ services:
     restart: unless-stopped
 ```
 
-2. Create a `.env` file with your credentials (see [Configuration](#configuration)).
+2. 创建 `.env` 文件并填入配置（见[配置说明](#配置)）。
 
-3. Start the service:
+3. 启动服务：
    ```bash
    docker-compose up -d
    ```
 
-**Option B: Manual Docker Run**
+### 2. 前端部署 (Vercel)
 
-```bash
-docker run -d \
-  --name crypto-sync-bot \
-  -p 8080:8080 \
-  --env-file .env \
-  ghcr.io/uykb/synchronous-backend:latest
-```
-
-### 2. Frontend Deployment (Vercel)
-
-1. Fork or clone this repository to your GitHub.
-2. Log in to [Vercel](https://vercel.com) and click **"Add New..."** -> **"Project"**.
-3. Import your `synchronous` repository.
-4. **Configure Project:**
+1. Fork 或 Clone 本仓库到你的 GitHub。
+2. 登录 [Vercel](https://vercel.com) 点击 **"Add New..."** -> **"Project"**.
+3. 导入你的 `synchronous` 仓库。
+4. **配置项目:**
    - **Framework Preset:** Vite
-   - **Root Directory:** `frontend` (Important!)
-5. **Deploy**.
-6. **Post-Deployment Configuration:**
-   - Go to your Vercel Project Settings.
-   - Update `frontend/vercel.json` in your repo to point to your actual backend URL:
+   - **Root Directory:** `frontend` (重要!)
+5. **部署 (Deploy)**.
+6. **部署后配置:**
+   - 进入 Vercel 项目设置 (Settings)。
+   - 在你的代码仓库中修改 `frontend/vercel.json`，将目标地址改为你后端的实际域名/IP：
      ```json
      {
        "rewrites": [
          {
            "source": "/api/:path*",
-           "destination": "https://your-backend-domain.com/api/:path*"
+           "destination": "http://your-backend-ip:8080/api/:path*"
          }
        ]
      }
      ```
-   - Push the change to trigger a redeploy.
+   - 推送代码更改以触发重新部署。
 
-## Configuration
+## 配置说明
 
-Create a `.env` file for the backend:
+### 环境变量 (.env)
+
+后端通过环境变量进行**首次初始化**。启动后，配置将持久化存储在 MySQL 数据库中，后续修改请通过前端界面进行。
 
 ```bash
-# Binance API
+# 数据库连接 (必须)
+MYSQL_DSN="user:password@tcp(your-mysql-host:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
+
+# 交易所 API (用于初始化)
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
 BINANCE_TESTNET=false
 
-# Bybit API
 BYBIT_API_KEY=your_key
 BYBIT_API_SECRET=your_secret
 
-# OKX API (Optional/Coming Soon)
-OKX_API_KEY=
-OKX_API_SECRET=
-OKX_API_PASSPHRASE=
-
-# Trading Config
+# 交易配置
 SYMBOL=BTC-USDT
-POSITION_RATIO=1.0      # Multiplier for order size
-MAX_POSITION=1.0        # Max position size allowed
-STOP_LOSS_RATIO=0.05    # 5% stop loss
+POSITION_RATIO=1.0      # 仓位比例
+MAX_POSITION=1.0        # 最大持仓限制
+STOP_LOSS_RATIO=0.05    # 止损比例 (5%)
 ```
 
-## Development
+### 动态配置
 
-### Local Development
+系统启动后，你可以访问前端页面：
+1. 登录设置面板。
+2. 修改 API Key 或同步策略。
+3. 点击保存并重启，新配置将立即生效（无需修改服务器环境变量）。
 
-1. **Start Backend:**
+## 开发指南
+
+### 本地开发
+
+1. **启动后端:**
    ```bash
    cd crypto-sync-bot
-   go mod tidy
+   # 确保本地有 MySQL 和 Redis 运行
+   export MYSQL_DSN="root:root@tcp(localhost:3306)/crypto_bot?charset=utf8mb4&parseTime=True&loc=Local"
    go run ./cmd/main.go
    ```
 
-2. **Start Frontend:**
+2. **启动前端:**
    ```bash
    cd frontend
    bun install
    bun dev
    ```
-   Access at `http://localhost:5173`. The frontend proxies `/api` requests to `http://localhost:8080`.
+   访问 `http://localhost:5173`。前端已配置代理，将 `/api` 请求转发至 `http://localhost:8080`。
 
-## API Endpoints
+## API 接口
 
-| Method | Endpoint | Description |
+| 方法 | 路径 | 描述 |
 |--------|----------|-------------|
-| GET | `/api/status` | Check bot status |
-| GET | `/api/config` | Get current configuration |
-| POST | `/api/signals` | Manually trigger a signal |
+| GET | `/api/status` | 查看机器人状态 |
+| GET | `/api/config` | 获取当前配置 |
+| POST | `/api/restart` | 重启服务 (应用新配置) |
+| POST | `/api/signals` | 手动触发信号 |
 
-## License
+## 许可证
 
 MIT License
