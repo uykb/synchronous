@@ -52,7 +52,7 @@ func (e *BybitExecutor) PlaceOrder(signal *models.TradingSignal) (*models.OrderR
 	// Using Unified Margin or Linear Futures API
 	res, err := e.client.V5().Order().CreateOrder(bybit.V5CreateOrderParam{
 		Category: bybit.CategoryV5Linear,
-		Symbol:   &symbolStr,
+		Symbol:   symbolStr,
 		Side:     bybit.Side(side),
 		OrderType: bybit.OrderType(orderType),
 		Qty:      fmt.Sprintf("%f", signal.Quantity),
