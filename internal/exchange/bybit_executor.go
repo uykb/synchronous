@@ -90,7 +90,7 @@ func (e *BybitExecutor) GetOrder(orderID, symbol string) (*models.OrderResult, e
 	res, err := e.client.V5().Order().GetOpenOrders(bybit.V5GetOpenOrdersParam{
 		Category: bybit.CategoryV5Linear,
 		Symbol:   bybit.SymbolV5(symbol),
-		OrderId:  &orderID,
+		OrderID:  &orderID,
 	})
 	if err != nil {
 		return nil, err
