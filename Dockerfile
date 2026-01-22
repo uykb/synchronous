@@ -3,34 +3,35 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Install git and ssl certificates
+# Install git and certificates
 RUN apk add --no-cache git ca-certificates
 
-# Copy dependency files
-COPY go.mod go.sum ./
+# Copy only go.mod initially
+COPY go.mod ./
 
-# Ensure dependencies are tidy and downloaded
-# We run tidy to fix any missing checksums that might occur due to environment differences
+# Generate a fresh go.sum and download dependencies
+# We don't copy the old go.sum to avoid checksum conflicts
 RUN go mod tidy
 
-# Copy source code
+# Copy the rest of the source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o crypto-sync-bot ./cmd/main.go
+# Final tidy and build
+RUN go mod tidy && \
+    CGO_ENABLED=0 GOOS=linux go build -o crypto-sync-bot ./cmd/main.go
 
 # Final Stage
 FROM alpine:latest
 
 WORKDIR /app
 
-# Install CA certificates for HTTPS
+# Install CA certificates
 RUN apk add --no-cache ca-certificates
 
-# Copy binary from builder
+# Copy binary
 COPY --from=builder /app/crypto-sync-bot .
 
-# The application listens on 8080
+# Expose API and Metrics ports
 EXPOSE 8080
 
 CMD ["./crypto-sync-bot"]
