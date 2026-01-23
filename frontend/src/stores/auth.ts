@@ -19,8 +19,8 @@ export const useAuthStore = defineStore('auth', {
         console.error('Failed to check status', error)
       }
     },
-    async setup(password: string) {
-      const { data } = await client.post('/auth/setup', { password })
+    async setup() {
+      const { data } = await client.post('/auth/setup')
       return data // contains totp_url and totp_secret
     },
     async login(code: string) {

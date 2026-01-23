@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pquerna/otp/totp"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtKey = []byte("your_secret_key") // In production, this should be from env
@@ -14,18 +13,6 @@ var jwtKey = []byte("your_secret_key") // In production, this should be from env
 type Claims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
-}
-
-// HashPassword hashes the password using bcrypt
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
-}
-
-// CheckPasswordHash compares password with hash
-func CheckPasswordHash(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
 }
 
 // GenerateToken generates a JWT token for a user

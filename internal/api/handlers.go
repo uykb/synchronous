@@ -98,18 +98,8 @@ func (a *API) SetupAuth(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Password string `json:"password" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	hash, _ := auth.HashPassword(req.Password)
 	secret, url, _ := auth.GenerateTOTPSecret("admin")
 
-	a.cfg.Auth.PasswordHash = hash
 	a.cfg.Auth.TOTPSecret = secret
 	a.cfg.Auth.IsConfigured = true
 	a.cfg.Save()
@@ -122,16 +112,13 @@ func (a *API) SetupAuth(c *gin.Context) {
 
 func (a *API) VerifyAuth(c *gin.Context) {
 	var req struct {
-		Password string `json:"password"`
-		Code     string `json:"code" binding:"required"`
+		Code string `json:"code" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// First time setup might not require password if just verifying TOTP, 
-	// but normally we check password then TOTP.
 	// For simplicity, we check TOTP.
 	if !auth.VerifyTOTP(req.Code, a.cfg.Auth.TOTPSecret) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid TOTP code"})

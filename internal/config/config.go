@@ -12,7 +12,6 @@ import (
 )
 
 type AuthConfig struct {
-	PasswordHash string `json:"password_hash" mapstructure:"password_hash"`
 	TOTPSecret   string `json:"totp_secret" mapstructure:"totp_secret"`
 	IsConfigured bool   `json:"is_configured" mapstructure:"is_configured"`
 }

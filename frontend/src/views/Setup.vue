@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import QRCode from 'qrcode'
@@ -7,17 +7,15 @@ import QRCode from 'qrcode'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const password = ref('')
 const setupData = ref<any>(null)
 const code = ref('')
 const loading = ref(false)
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 
 async function handleSetup() {
-  if (!password.value) return
   loading.value = true
   try {
-    const data = await authStore.setup(password.value)
+    const data = await authStore.setup('')
     setupData.value = data
     await nextTick()
     if (qrCanvas.value && data.totp_url) {
@@ -37,6 +35,10 @@ async function handleSetup() {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  handleSetup()
+})
 
 async function handleVerify() {
   if (code.value.length !== 6) return
@@ -65,20 +67,17 @@ async function handleVerify() {
         <p>初始化您的 CryptoSyncBot 实例</p>
       </div>
 
-      <div v-if="!setupData" class="setup-body">
-        <div class="form-group">
-          <label>管理员密码</label>
-          <input 
-            type="password" 
-            v-model="password" 
-            placeholder="请选择一个强密码" 
-            class="setup-input"
-          />
-          <p class="helper-text">此密码将用于访问控制面板。</p>
+      <div v-if="!setupData" class="setup-body centered">
+        <div v-if="loading" class="loading-spinner">
+          <div class="spinner"></div>
+          <p>正在生成安全密钥...</p>
         </div>
-        <button @click="handleSetup" :disabled="loading || !password" class="primary-btn full-width">
-          {{ loading ? '正在初始化...' : '初始化机器人' }}
-        </button>
+        <div v-else>
+          <p>初始化失败，请重试</p>
+          <button @click="handleSetup" class="primary-btn mt-4">
+            生成 TOTP 密钥
+          </button>
+        </div>
       </div>
       
       <div v-else class="totp-setup">
@@ -116,6 +115,35 @@ async function handleVerify() {
 </template>
 
 <style scoped>
+.centered {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .setup-wrapper {
   min-height: calc(100vh - 200px);
   display: flex;
