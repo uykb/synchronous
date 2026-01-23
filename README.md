@@ -59,6 +59,8 @@ services:
     environment:
       - MYSQL_DSN=${MYSQL_DSN}
       - REDIS_ADDR=redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN}
       # 初始配置 (首次启动时写入数据库)
       - BINANCE_API_KEY=${BINANCE_API_KEY}
       - BINANCE_API_SECRET=${BINANCE_API_SECRET}
@@ -112,6 +114,10 @@ services:
 # 数据库连接 (必须)
 MYSQL_DSN="user:password@tcp(your-mysql-host:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 
+# 安全配置 (必须在生产环境设置)
+JWT_SECRET=your-32-char-minimum-secret-key  # JWT 签名密钥，至少 32 字符
+CORS_ORIGIN=https://your-frontend-domain.com  # 允许的跨域来源
+
 # 交易所 API (用于初始化)
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
@@ -133,6 +139,15 @@ STOP_LOSS_RATIO=0.05    # 止损比例 (5%)
 1. 登录设置面板。
 2. 修改 API Key 或同步策略。
 3. 点击保存并重启，新配置将立即生效（无需修改服务器环境变量）。
+
+## 🔒 安全说明
+
+| 配置项 | 说明 | 生产要求 |
+|--------|------|----------|
+| `JWT_SECRET` | JWT 令牌签名密钥 | **必须设置**，至少 32 字符 |
+| `CORS_ORIGIN` | 允许的前端域名 | 设置为实际前端 URL |
+| API 密钥 | `/api/config` 端点已脱敏 | 密钥不会通过 API 暴露 |
+| 速率限制 | 认证端点 5次/分钟 | 已内置，无需配置 |
 
 ## 开发指南
 
@@ -162,6 +177,8 @@ STOP_LOSS_RATIO=0.05    # 止损比例 (5%)
 | GET | `/api/config` | 获取当前配置 |
 | POST | `/api/restart` | 重启服务 (应用新配置) |
 | POST | `/api/signals` | 手动触发信号 |
+| POST | `/api/auth/setup` | 初始化 TOTP 认证 (限流: 5次/分钟) |
+| POST | `/api/auth/verify` | 验证 TOTP 并获取 JWT (限流: 5次/分钟) |
 
 ## 许可证
 

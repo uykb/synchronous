@@ -8,6 +8,7 @@ Crypto-Sync-Bot is a real-time cryptocurrency trading signal synchronization bot
 - **Backend**: Go-based signal processing and order execution
 - **Frontend**: Vue 3 + TypeScript managed with Bun
 - **Deployment**: Docker Compose with Nginx
+- **Security**: JWT-based authentication, rate limiting on auth endpoints, and thread-safe configuration management
 
 ## 2. Build and Execution
 
@@ -105,6 +106,9 @@ crypto-sync-bot/
 ├── cmd/
 │   └── main.go                 # Backend entry point
 ├── internal/
+│   ├── api/                    # REST API handlers
+│   │   ├── handlers.go         # Route handlers
+│   │   └── middleware.go       # Auth, HMAC, RateLimiter
 │   ├── config/                 # Configuration loading (Viper)
 │   ├── models/                 # Data structures (TradingSignal, OrderResult)
 │   ├── exchange/               # Exchange implementations
@@ -146,12 +150,35 @@ crypto-sync-bot/
 - Propagate errors with context: `throw new Error(\`failed to fetch: \${error.message}\`)`
 - Use Result/Either patterns where appropriate for async operations
 
+## Security Patterns
+
+### Authentication
+- JWT tokens for API authentication
+- TOTP for initial setup
+- Token loaded from `JWT_SECRET` env var (NEVER hardcode)
+
+### Thread Safety
+- `Config` struct uses `sync.RWMutex` for all reads/writes
+- Use getter methods: `cfg.GetSync()`, `cfg.GetBinance()`, etc.
+- Use `cfg.Update()` for modifications, never direct field assignment
+
+### Rate Limiting
+- Auth endpoints: 5 requests/minute per IP
+- Signal endpoints: 60 requests/minute per IP
+- Implemented in `internal/api/middleware.go`
+
+### Input Validation
+- `parseFloat` properly returns errors (no silent failures)
+- All numeric parsing must be checked before order execution
+
 ## 8. Concurrency
 
 ### Go
 - **Mutexes**: Use `sync.Mutex` or `sync.RWMutex` to protect shared state.
 - **WaitGroups**: Use `sync.WaitGroup` when spawning multiple goroutines.
 - **Channels**: Use channels for signal passing. Ensure channels are closed properly.
+- **Config Access**: Always use getter methods (`cfg.GetSync()`) for thread-safe reads
+- **Config Updates**: Use `cfg.Update()` method, never direct field assignment
 
 ### TypeScript
 - **Async/Await**: Prefer async/await over raw promises
@@ -188,6 +215,11 @@ crypto-sync-bot/
 - Frontend proxies API requests to backend via Vite dev server
 - Production: Nginx serves static files, backend runs on separate port
 - Use Pinia for signal state management across components
+
+### Idempotency
+- Per-exchange idempotency tracking in `processor/idempotency.go`
+- Keys format: `signal:{exchange}:{signalID}:{quantity}:{price}`
+- Use `IsDuplicate()` to check, `MarkProcessed()` after success
 
 ## 11. Linting
 
