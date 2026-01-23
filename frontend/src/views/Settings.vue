@@ -23,11 +23,44 @@ onMounted(() => {
 })
 
 function copyIp() {
-  navigator.clipboard.writeText(serverIp.value)
-  copied.value = true
-  setTimeout(() => {
-    copied.value = false
-  }, 2000)
+  const text = serverIp.value
+  if (text === '正在获取...' || text === '获取失败') return
+
+  // Try modern Clipboard API
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      copied.value = true
+      setTimeout(() => { copied.value = false }, 2000)
+    }).catch(err => {
+      console.error('Clipboard API failed, falling back:', err)
+      fallbackCopyTextToClipboard(text)
+    })
+  } else {
+    fallbackCopyTextToClipboard(text)
+  }
+}
+
+function fallbackCopyTextToClipboard(text: string) {
+  const textArea = document.createElement("textarea")
+  textArea.value = text
+  textArea.style.position = "fixed"
+  textArea.style.left = "-9999px"
+  textArea.style.top = "0"
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
+
+  try {
+    const successful = document.execCommand('copy')
+    if (successful) {
+      copied.value = true
+      setTimeout(() => { copied.value = false }, 2000)
+    }
+  } catch (err) {
+    console.error('Fallback copy failed:', err)
+  }
+
+  document.body.removeChild(textArea)
 }
 
 const config = ref({
