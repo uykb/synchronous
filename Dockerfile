@@ -6,15 +6,14 @@ WORKDIR /app
 # Install git and certificates
 RUN apk add --no-cache git ca-certificates
 
-# Copy go mod files first for better caching
-COPY go.mod go.sum ./
-RUN go mod download
+# Copy go.mod first
+COPY go.mod ./
 
-# Copy the rest of the source code
+# Copy source code
 COPY . .
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o crypto-sync-bot ./cmd/main.go
+# Tidy modules and build
+RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -o crypto-sync-bot ./cmd/main.go
 
 # Final Stage
 FROM alpine:latest
