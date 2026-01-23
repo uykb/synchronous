@@ -15,11 +15,46 @@ const qrCanvas = ref<HTMLCanvasElement | null>(null)
 
 function copySecret() {
   if (!setupData.value?.totp_secret) return
-  navigator.clipboard.writeText(setupData.value.totp_secret)
-  copied.value = true
-  setTimeout(() => {
-    copied.value = false
-  }, 2000)
+  
+  const text = setupData.value.totp_secret
+  
+  // Try modern Clipboard API
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      copied.value = true
+      setTimeout(() => { copied.value = false }, 2000)
+    }).catch(err => {
+      console.error('Clipboard API failed, falling back:', err)
+      fallbackCopyTextToClipboard(text)
+    })
+  } else {
+    fallbackCopyTextToClipboard(text)
+  }
+}
+
+function fallbackCopyTextToClipboard(text: string) {
+  const textArea = document.createElement("textarea")
+  textArea.value = text
+  
+  // Ensure it's not visible but part of the DOM
+  textArea.style.position = "fixed"
+  textArea.style.left = "-9999px"
+  textArea.style.top = "0"
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
+
+  try {
+    const successful = document.execCommand('copy')
+    if (successful) {
+      copied.value = true
+      setTimeout(() => { copied.value = false }, 2000)
+    }
+  } catch (err) {
+    console.error('Fallback copy failed:', err)
+  }
+
+  document.body.removeChild(textArea)
 }
 
 async function handleSetup() {
