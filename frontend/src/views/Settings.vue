@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useTradingStore } from '../stores/trading'
 import axios from 'axios'
 
@@ -73,8 +73,32 @@ const config = ref({
     api_key: '',
     api_secret: '',
     passphrase: ''
+  },
+  bybit: {
+    api_key: '',
+    api_secret: ''
   }
 })
+
+const configuredExchanges = computed(() => {
+  const exchanges = []
+  if (config.value.binance?.api_key) exchanges.push({ id: 'binance', name: 'Binance', icon: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040' })
+  if (config.value.okx?.api_key) exchanges.push({ id: 'okx', name: 'OKX', icon: 'https://logo.svgcdn.com/token-branded/okx.svg' })
+  if (config.value.bybit?.api_key) exchanges.push({ id: 'bybit', name: 'Bybit', icon: 'https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040' })
+  return exchanges
+})
+
+const availableSources = computed(() => configuredExchanges.value)
+const filteredTargets = computed(() => {
+  return configuredExchanges.value.filter(ex => ex.id !== newItem.value.source)
+})
+
+const isExchangeConfigured = (exchangeId: string) => {
+  if (exchangeId === 'binance') return !!config.value.binance.api_key && !!config.value.binance.api_secret
+  if (exchangeId === 'okx') return !!config.value.okx.api_key && !!config.value.okx.api_secret && !!config.value.okx.passphrase
+  if (exchangeId === 'bybit') return !!config.value.bybit.api_key && !!config.value.bybit.api_secret
+  return false
+}
 
 const activeExchanges = ref([])
 const showExchangeSelectModal = ref(false)
@@ -99,9 +123,25 @@ const showAddModal = ref(false)
 const newItem = ref({
   name: '',
   symbol: '',
-  source: 'binance',
+  source: '',
   targets: [] as string[]
 })
+
+// Initialize source when modal opens or exchanges change
+watch(showAddModal, (val) => {
+  if (val && !newItem.value.source && availableSources.value.length > 0) {
+    newItem.value.source = availableSources.value[0].id
+  }
+})
+
+function toggleTarget(id: string) {
+  const index = newItem.value.targets.indexOf(id)
+  if (index === -1) {
+    newItem.value.targets.push(id)
+  } else {
+    newItem.value.targets.splice(index, 1)
+  }
+}
 
 function saveConfig() {
   console.log('Saving config:', config.value)
@@ -134,7 +174,7 @@ function addSyncItem() {
   newItem.value = {
     name: '',
     symbol: '',
-    source: 'binance',
+    source: availableSources.value[0]?.id || '',
     targets: []
   }
 }
@@ -177,6 +217,9 @@ function addSyncItem() {
               <div class="exchange-info">
                 <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040" alt="Binance" class="exchange-logo" />
                 <h3>Binance</h3>
+                <span :class="['status-badge', isExchangeConfigured('binance') ? 'configured' : 'incomplete']">
+                  {{ isExchangeConfigured('binance') ? '✅ 已配置' : '⚠️ 未完成' }}
+                </span>
               </div>
               <button class="remove-exchange-btn" @click="removeExchange('binance')" title="移除交易所">×</button>
             </div>
@@ -201,6 +244,9 @@ function addSyncItem() {
               <div class="exchange-info">
                 <img src="https://logo.svgcdn.com/token-branded/okx.svg" alt="OKX" class="exchange-logo" />
                 <h3>OKX</h3>
+                <span :class="['status-badge', isExchangeConfigured('okx') ? 'configured' : 'incomplete']">
+                  {{ isExchangeConfigured('okx') ? '✅ 已配置' : '⚠️ 未完成' }}
+                </span>
               </div>
               <button class="remove-exchange-btn" @click="removeExchange('okx')" title="移除交易所">×</button>
             </div>
@@ -216,6 +262,29 @@ function addSyncItem() {
               <div class="form-group">
                 <label>Passphrase (密码)</label>
                 <input type="password" v-model="config.okx.passphrase" placeholder="请输入 Passphrase" />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="activeExchanges.includes('bybit')" class="exchange-card">
+            <div class="exchange-header">
+              <div class="exchange-info">
+                <img src="https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040" alt="Bybit" class="exchange-logo" />
+                <h3>Bybit</h3>
+                <span :class="['status-badge', isExchangeConfigured('bybit') ? 'configured' : 'incomplete']">
+                  {{ isExchangeConfigured('bybit') ? '✅ 已配置' : '⚠️ 未完成' }}
+                </span>
+              </div>
+              <button class="remove-exchange-btn" @click="removeExchange('bybit')" title="移除交易所">×</button>
+            </div>
+            <div class="exchange-body">
+              <div class="form-group">
+                <label>API Key</label>
+                <input type="password" v-model="config.bybit.api_key" placeholder="请输入 API Key" />
+              </div>
+              <div class="form-group">
+                <label>Secret Key</label>
+                <input type="password" v-model="config.bybit.api_secret" placeholder="请输入 Secret Key" />
               </div>
             </div>
           </div>
@@ -301,6 +370,15 @@ function addSyncItem() {
                 <span>OKX</span>
                 <div v-if="activeExchanges.includes('okx')" class="badge">已添加</div>
               </div>
+              <div 
+                class="selector-item" 
+                :class="{ disabled: activeExchanges.includes('bybit') }"
+                @click="!activeExchanges.includes('bybit') && addExchange('bybit')"
+              >
+                <img src="https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040" alt="Bybit" />
+                <span>Bybit</span>
+                <div v-if="activeExchanges.includes('bybit')" class="badge">已添加</div>
+              </div>
             </div>
           </div>
         </div>
@@ -316,6 +394,9 @@ function addSyncItem() {
             <button class="close-btn" @click="showAddModal = false">×</button>
           </div>
           <div class="modal-body">
+            <div v-if="configuredExchanges.length === 0" class="warning-message">
+              ⚠️ 请先配置至少一个交易所的 API 密钥
+            </div>
             <div class="form-group">
               <label>规则名称</label>
               <input v-model="newItem.name" placeholder="例如：BTC 套利" />
@@ -326,22 +407,28 @@ function addSyncItem() {
             </div>
             <div class="form-group">
               <label>来源交易所</label>
-              <select v-model="newItem.source">
-                <option value="binance">Binance</option>
-                <option value="okx">OKX</option>
-              </select>
+              <div class="exchange-chips">
+                <button 
+                  v-for="ex in availableSources" 
+                  :key="ex.id"
+                  :class="['chip', { active: newItem.source === ex.id }]"
+                  @click="newItem.source = ex.id"
+                >
+                  {{ ex.name }}
+                </button>
+              </div>
             </div>
             <div class="form-group">
               <label>目标交易所</label>
-              <div class="checkbox-row">
-                <label class="custom-checkbox">
-                  <input type="checkbox" value="okx" v-model="newItem.targets" />
-                  <span class="checkmark"></span> OKX
-                </label>
-                <label class="custom-checkbox">
-                  <input type="checkbox" value="bybit" v-model="newItem.targets" />
-                  <span class="checkmark"></span> Bybit
-                </label>
+              <div class="exchange-chips">
+                <button 
+                  v-for="ex in filteredTargets" 
+                  :key="ex.id"
+                  :class="['chip', { active: newItem.targets.includes(ex.id) }]"
+                  @click="toggleTarget(ex.id)"
+                >
+                  {{ ex.name }}
+                </button>
               </div>
             </div>
           </div>
@@ -357,6 +444,7 @@ function addSyncItem() {
 
 <style scoped>
 .settings {
+  --warning: #f59e0b;
   animation: fadeIn 0.4s ease-out;
 }
 
@@ -813,6 +901,70 @@ input:focus, select:focus {
   gap: 0.5rem;
   cursor: pointer;
   font-size: 0.875rem;
+}
+
+.status-badge {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.status-badge.configured {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-badge.incomplete {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.warning-message {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.exchange-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.chip {
+  background: var(--surface-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.chip.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #000;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
 }
 
 .close-btn {
