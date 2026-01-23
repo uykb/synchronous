@@ -32,7 +32,7 @@ const newItem = ref({
 
 function saveConfig() {
   console.log('Saving config:', config.value)
-  alert('Configuration saved successfully!')
+  alert('配置保存成功！')
 }
 
 function restartBot() {
@@ -41,7 +41,7 @@ function restartBot() {
     tradingStore.toggleBot() // stop
     setTimeout(() => tradingStore.toggleBot(), 1000) // start
   }
-  alert('Bot restart command sent.')
+  alert('机器人重启命令已发送。')
 }
 
 function removeSyncItem(id: number) {
@@ -70,15 +70,15 @@ function addSyncItem() {
 <template>
   <div class="settings">
     <header class="settings-header">
-      <h1>Settings</h1>
-      <p class="subtitle">Configure your exchange credentials and synchronization rules</p>
+      <h1>设置</h1>
+      <p class="subtitle">配置您的交易所凭据和同步规则</p>
     </header>
     
     <div class="settings-layout">
       <section class="settings-section">
         <div class="section-title">
           <span class="icon">🔑</span>
-          <h2>Exchanges Configuration</h2>
+          <h2>交易所配置</h2>
         </div>
         
         <div class="settings-grid">
@@ -90,15 +90,15 @@ function addSyncItem() {
             <div class="exchange-body">
               <div class="form-group">
                 <label>API Key</label>
-                <input type="password" v-model="config.binance.api_key" placeholder="Enter API Key" />
+                <input type="password" v-model="config.binance.api_key" placeholder="请输入 API Key" />
               </div>
               <div class="form-group">
                 <label>Secret Key</label>
-                <input type="password" v-model="config.binance.api_secret" placeholder="Enter Secret Key" />
+                <input type="password" v-model="config.binance.api_secret" placeholder="请输入 Secret Key" />
               </div>
               <label class="checkbox-label">
                 <input type="checkbox" v-model="config.binance.testnet" />
-                <span class="checkbox-text">Enable Testnet Mode</span>
+                <span class="checkbox-text">启用测试网模式</span>
               </label>
             </div>
           </div>
@@ -111,15 +111,15 @@ function addSyncItem() {
             <div class="exchange-body">
               <div class="form-group">
                 <label>API Key</label>
-                <input type="password" v-model="config.okx.api_key" placeholder="Enter API Key" />
+                <input type="password" v-model="config.okx.api_key" placeholder="请输入 API Key" />
               </div>
               <div class="form-group">
                 <label>Secret Key</label>
-                <input type="password" v-model="config.okx.api_secret" placeholder="Enter Secret Key" />
+                <input type="password" v-model="config.okx.api_secret" placeholder="请输入 Secret Key" />
               </div>
               <div class="form-group">
-                <label>Passphrase</label>
-                <input type="password" v-model="config.okx.passphrase" placeholder="Enter Passphrase" />
+                <label>Passphrase (密码)</label>
+                <input type="password" v-model="config.okx.passphrase" placeholder="请输入 Passphrase" />
               </div>
             </div>
           </div>
@@ -127,10 +127,10 @@ function addSyncItem() {
 
         <div class="actions-footer">
           <button class="primary-btn" @click="saveConfig">
-            <span>💾</span> Save Changes
+            <span>💾</span> 保存更改
           </button>
           <button class="secondary-btn" @click="restartBot">
-            <span>🔄</span> Restart Bot
+            <span>🔄</span> 重启机器人
           </button>
         </div>
       </section>
@@ -138,7 +138,7 @@ function addSyncItem() {
       <section class="settings-section">
         <div class="section-title">
           <span class="icon">🔄</span>
-          <h2>Sync Rules</h2>
+          <h2>同步规则</h2>
         </div>
         
         <div class="sync-items-grid">
@@ -148,15 +148,15 @@ function addSyncItem() {
                 <h3>{{ item.name }}</h3>
                 <span class="symbol-tag">{{ item.symbol }}</span>
               </div>
-              <button class="delete-btn" @click="removeSyncItem(item.id)" title="Remove Rule">×</button>
+              <button class="delete-btn" @click="removeSyncItem(item.id)" title="移除规则">×</button>
             </div>
             <div class="sync-details">
               <div class="detail-row">
-                <span class="label">Source</span>
+                <span class="label">来源</span>
                 <span class="value">{{ item.source }}</span>
               </div>
               <div class="detail-row">
-                <span class="label">Targets</span>
+                <span class="label">目标</span>
                 <div class="targets-list">
                   <span v-for="t in item.targets" :key="t" class="target-tag">{{ t }}</span>
                 </div>
@@ -166,7 +166,7 @@ function addSyncItem() {
 
           <div class="add-sync-card" @click="showAddModal = true">
             <div class="add-plus">+</div>
-            <p>Add New Sync Rule</p>
+            <p>添加新同步规则</p>
           </div>
         </div>
       </section>
@@ -177,27 +177,27 @@ function addSyncItem() {
       <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
         <div class="modal-content">
           <div class="modal-header">
-            <h3>New Sync Rule</h3>
+            <h3>新建同步规则</h3>
             <button class="close-btn" @click="showAddModal = false">×</button>
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label>Rule Name</label>
-              <input v-model="newItem.name" placeholder="e.g. BTC Arbitrage" />
+              <label>规则名称</label>
+              <input v-model="newItem.name" placeholder="例如：BTC 套利" />
             </div>
             <div class="form-group">
-              <label>Trading Pair</label>
-              <input v-model="newItem.symbol" placeholder="e.g. BTC-USDT" />
+              <label>交易对</label>
+              <input v-model="newItem.symbol" placeholder="例如：BTC-USDT" />
             </div>
             <div class="form-group">
-              <label>Source Exchange</label>
+              <label>来源交易所</label>
               <select v-model="newItem.source">
                 <option value="binance">Binance</option>
                 <option value="okx">OKX</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Target Exchanges</label>
+              <label>目标交易所</label>
               <div class="checkbox-row">
                 <label class="custom-checkbox">
                   <input type="checkbox" value="okx" v-model="newItem.targets" />
@@ -211,8 +211,8 @@ function addSyncItem() {
             </div>
           </div>
           <div class="modal-footer">
-            <button class="secondary-btn" @click="showAddModal = false">Cancel</button>
-            <button class="primary-btn" @click="addSyncItem">Create Rule</button>
+            <button class="secondary-btn" @click="showAddModal = false">取消</button>
+            <button class="primary-btn" @click="addSyncItem">创建规则</button>
           </div>
         </div>
       </div>

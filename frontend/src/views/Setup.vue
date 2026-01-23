@@ -32,7 +32,7 @@ async function handleSetup() {
     }
   } catch (error) {
     console.error('Setup failed', error)
-    alert('Failed to initialize setup')
+    alert('初始化设置失败')
   } finally {
     loading.value = false
   }
@@ -47,7 +47,7 @@ async function handleVerify() {
     router.push('/')
   } catch (error) {
     console.error('Verification failed', error)
-    alert('Invalid verification code')
+    alert('验证码无效')
   } finally {
     loading.value = false
   }
@@ -61,43 +61,43 @@ async function handleVerify() {
         <div class="logo">
           <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg" alt="BTC" />
         </div>
-        <h1>First Time Setup</h1>
-        <p>Initialize your CryptoSyncBot instance</p>
+        <h1>首次运行设置</h1>
+        <p>初始化您的 CryptoSyncBot 实例</p>
       </div>
 
       <div v-if="!setupData" class="setup-body">
         <div class="form-group">
-          <label>Administrator Password</label>
+          <label>管理员密码</label>
           <input 
             type="password" 
             v-model="password" 
-            placeholder="Choose a strong password" 
+            placeholder="请选择一个强密码" 
             class="setup-input"
           />
-          <p class="helper-text">This password will be used for dashboard access.</p>
+          <p class="helper-text">此密码将用于访问控制面板。</p>
         </div>
         <button @click="handleSetup" :disabled="loading || !password" class="primary-btn full-width">
-          {{ loading ? 'Initializing...' : 'Initialize Bot' }}
+          {{ loading ? '正在初始化...' : '初始化机器人' }}
         </button>
       </div>
       
       <div v-else class="totp-setup">
-        <div class="step-badge">Security Step</div>
-        <h3>Two-Factor Authentication</h3>
-        <p class="instruction">Scan this QR code with Google Authenticator or Authy.</p>
+        <div class="step-badge">安全步骤</div>
+        <h3>双重身份验证 (2FA)</h3>
+        <p class="instruction">请使用 Google Authenticator 或 Authy 扫描此二维码。</p>
         
         <div class="qr-container">
           <canvas ref="qrCanvas"></canvas>
         </div>
         
         <div class="secret-box">
-          <label>Manual Entry Key</label>
+          <label>手动输入密钥</label>
           <code>{{ setupData.totp_secret }}</code>
         </div>
 
         <div class="verify-section">
           <div class="form-group">
-            <label>Verification Code</label>
+            <label>验证码</label>
             <input 
               type="text" 
               v-model="code" 
@@ -107,7 +107,7 @@ async function handleVerify() {
             />
           </div>
           <button @click="handleVerify" :disabled="code.length !== 6" class="primary-btn full-width">
-            Verify & Finish Setup
+            验证并完成设置
           </button>
         </div>
       </div>

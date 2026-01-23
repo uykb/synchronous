@@ -32,8 +32,8 @@ onUnmounted(() => {
   <div class="dashboard">
     <header class="dashboard-header">
       <div>
-        <h1>Dashboard</h1>
-        <p class="subtitle">Monitor your automated trading signals in real-time</p>
+        <h1>控制面板</h1>
+        <p class="subtitle">实时监控您的自动化交易信号</p>
       </div>
       <div class="header-actions">
         <button 
@@ -41,7 +41,7 @@ onUnmounted(() => {
           :class="['bot-toggle-btn', { 'is-running': store.isRunning }]"
         >
           <span class="btn-icon">{{ store.isRunning ? '⏹' : '▶' }}</span>
-          {{ store.isRunning ? 'Stop Bot' : 'Start Bot' }}
+          {{ store.isRunning ? '停止机器人' : '启动机器人' }}
         </button>
       </div>
     </header>
@@ -50,51 +50,51 @@ onUnmounted(() => {
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-icon status">📡</span>
-          <h3>Bot Status</h3>
+          <h3>机器人状态</h3>
         </div>
         <div class="stat-value">
           <span :class="['status-badge', store.isRunning ? 'status-active' : 'status-inactive']">
-            {{ store.isRunning ? 'Running' : 'Offline' }}
+            {{ store.isRunning ? '运行中' : '已离线' }}
           </span>
         </div>
         <div class="stat-footer">
-          {{ store.isRunning ? 'Bot is actively listening' : 'System is currently idle' }}
+          {{ store.isRunning ? '机器人正在监听信号' : '系统当前处于空闲状态' }}
         </div>
       </div>
       
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-icon time">🕒</span>
-          <h3>Last Update</h3>
+          <h3>最后更新</h3>
         </div>
-        <div class="stat-value">{{ store.lastUpdate || 'Never' }}</div>
-        <div class="stat-footer">Latest signal timestamp</div>
+        <div class="stat-value">{{ store.lastUpdate || '从未' }}</div>
+        <div class="stat-footer">最新信号时间戳</div>
       </div>
       
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-icon signals">📊</span>
-          <h3>Signals Today</h3>
+          <h3>今日信号</h3>
         </div>
         <div class="stat-value">{{ store.signals.length }}</div>
-        <div class="stat-footer">Total signals received</div>
+        <div class="stat-footer">累计接收信号总数</div>
       </div>
     </div>
 
     <div class="signals-section card">
       <div class="section-header">
-        <h2>Recent Activity</h2>
-        <div class="badge">{{ store.signals.length }} Total</div>
+        <h2>最近活动</h2>
+        <div class="badge">共 {{ store.signals.length }} 条</div>
       </div>
       
       <div class="table-container">
         <table v-if="store.signals.length">
           <thead>
             <tr>
-              <th>Timestamp</th>
-              <th>Pair</th>
-              <th>Action</th>
-              <th class="text-right">Price</th>
+              <th>时间戳</th>
+              <th>交易对</th>
+              <th>操作</th>
+              <th class="text-right">价格</th>
             </tr>
           </thead>
           <tbody>
@@ -105,7 +105,7 @@ onUnmounted(() => {
               </td>
               <td>
                 <span :class="['side-badge', sig.side === 'BUY' ? 'side-buy' : 'side-sell']">
-                  {{ sig.side }}
+                  {{ sig.side === 'BUY' ? '买入' : '卖出' }}
                 </span>
               </td>
               <td class="price text-right">{{ sig.price }}</td>
@@ -114,7 +114,7 @@ onUnmounted(() => {
         </table>
         <div v-else class="empty-state">
           <div class="empty-icon">📭</div>
-          <p>Waiting for signals...</p>
+          <p>等待信号中...</p>
         </div>
       </div>
     </div>

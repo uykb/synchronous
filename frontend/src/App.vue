@@ -23,13 +23,13 @@ const logout = () => {
         </div>
         <div class="nav-links" v-if="auth.isAuthenticated">
           <router-link to="/" class="nav-link">
-            <span class="link-icon">📊</span> Dashboard
+            <span class="link-icon">📊</span> 控制面板
           </router-link>
           <router-link to="/settings" class="nav-link">
-            <span class="link-icon">⚙️</span> Settings
+            <span class="link-icon">⚙️</span> 设置
           </router-link>
           <button @click="logout" class="logout-btn">
-            Logout
+            退出登录
           </button>
         </div>
       </div>

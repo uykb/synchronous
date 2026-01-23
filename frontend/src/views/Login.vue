@@ -18,7 +18,7 @@ async function handleLogin() {
     router.push('/')
   } catch (error) {
     console.error('Login failed', error)
-    alert('Invalid verification code')
+    alert('验证码无效')
   } finally {
     loading.value = false
   }
@@ -32,13 +32,13 @@ async function handleLogin() {
         <div class="logo">
           <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg" alt="BTC" />
         </div>
-        <h1>Secure Access</h1>
-        <p>Verification required to continue</p>
+        <h1>安全访问</h1>
+        <p>需要验证以继续</p>
       </div>
       
       <div class="login-body">
         <div class="input-group">
-          <label for="totp">TOTP Verification Code</label>
+          <label for="totp">TOTP 验证码</label>
           <input 
             id="totp"
             type="text" 
@@ -49,12 +49,12 @@ async function handleLogin() {
             autocomplete="one-time-code"
             inputmode="numeric"
           />
-          <p class="helper-text">Enter the 6-digit code from your Authenticator app.</p>
+          <p class="helper-text">请输入您身份验证器应用中的 6 位代码。</p>
         </div>
         
         <button @click="handleLogin" :disabled="loading || code.length !== 6" class="login-btn">
           <span v-if="loading" class="spinner"></span>
-          {{ loading ? 'Verifying...' : 'Verify & Enter' }}
+          {{ loading ? '验证中...' : '验证并进入' }}
         </button>
       </div>
     </div>
