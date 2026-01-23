@@ -84,7 +84,7 @@ function addSyncItem() {
         <div class="settings-grid">
           <div class="exchange-card">
             <div class="exchange-header">
-              <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.png" alt="Binance" class="exchange-logo" />
+              <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040" alt="Binance" class="exchange-logo" />
               <h3>Binance</h3>
             </div>
             <div class="exchange-body">
@@ -105,7 +105,7 @@ function addSyncItem() {
 
           <div class="exchange-card">
             <div class="exchange-header">
-              <img src="https://cryptologos.cc/logos/okx-okb-logo.png" alt="OKX" class="exchange-logo" />
+              <img src="https://logo.svgcdn.com/token-branded/okx.svg" alt="OKX" class="exchange-logo" />
               <h3>OKX</h3>
             </div>
             <div class="exchange-body">
