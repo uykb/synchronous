@@ -29,7 +29,9 @@ async function handleLogin() {
   <div class="login-wrapper">
     <div class="login-card">
       <div class="login-header">
-        <div class="logo">CSB</div>
+        <div class="logo">
+          <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg" alt="BTC" />
+        </div>
         <h1>Secure Access</h1>
         <p>Verification required to continue</p>
       </div>
@@ -84,16 +86,19 @@ async function handleLogin() {
 }
 
 .logo {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  width: 48px;
-  height: 48px;
+  background: transparent;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  font-weight: 900;
-  color: #000;
-  margin: 0 auto 1rem;
+  margin: 0 auto 1.5rem;
+}
+
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .login-header h1 {

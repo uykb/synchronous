@@ -16,7 +16,9 @@ const logout = () => {
     <nav class="nav-bar">
       <div class="nav-container">
         <div class="nav-brand">
-          <div class="brand-logo">CSB</div>
+          <div class="brand-logo">
+            <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg" alt="BTC" />
+          </div>
           <span>CryptoSyncBot</span>
         </div>
         <div class="nav-links" v-if="auth.isAuthenticated">
@@ -84,16 +86,18 @@ const logout = () => {
 }
 
 .brand-logo {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: #000;
-  width: 36px;
-  height: 36px;
+  background: transparent;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 900;
+}
+
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .nav-links {
