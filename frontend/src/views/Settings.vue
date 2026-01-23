@@ -17,6 +17,20 @@ const config = ref({
   }
 })
 
+const activeExchanges = ref([])
+const showExchangeSelectModal = ref(false)
+
+function removeExchange(exchange: string) {
+  activeExchanges.value = activeExchanges.value.filter(e => e !== exchange)
+}
+
+function addExchange(exchange: string) {
+  if (!activeExchanges.value.includes(exchange)) {
+    activeExchanges.value.push(exchange)
+  }
+  showExchangeSelectModal.value = false
+}
+
 const syncItems = ref([
   { id: 1, name: 'BTC Arbitrage', symbol: 'BTC-USDT', source: 'binance', targets: ['okx', 'bybit'] },
   { id: 2, name: 'ETH Sync', symbol: 'ETH-USDT', source: 'okx', targets: ['bybit'] }
@@ -82,10 +96,13 @@ function addSyncItem() {
         </div>
         
         <div class="settings-grid">
-          <div class="exchange-card">
+          <div v-if="activeExchanges.includes('binance')" class="exchange-card">
             <div class="exchange-header">
-              <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040" alt="Binance" class="exchange-logo" />
-              <h3>Binance</h3>
+              <div class="exchange-info">
+                <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040" alt="Binance" class="exchange-logo" />
+                <h3>Binance</h3>
+              </div>
+              <button class="remove-exchange-btn" @click="removeExchange('binance')" title="移除交易所">×</button>
             </div>
             <div class="exchange-body">
               <div class="form-group">
@@ -103,10 +120,13 @@ function addSyncItem() {
             </div>
           </div>
 
-          <div class="exchange-card">
+          <div v-if="activeExchanges.includes('okx')" class="exchange-card">
             <div class="exchange-header">
-              <img src="https://logo.svgcdn.com/token-branded/okx.svg" alt="OKX" class="exchange-logo" />
-              <h3>OKX</h3>
+              <div class="exchange-info">
+                <img src="https://logo.svgcdn.com/token-branded/okx.svg" alt="OKX" class="exchange-logo" />
+                <h3>OKX</h3>
+              </div>
+              <button class="remove-exchange-btn" @click="removeExchange('okx')" title="移除交易所">×</button>
             </div>
             <div class="exchange-body">
               <div class="form-group">
@@ -122,6 +142,11 @@ function addSyncItem() {
                 <input type="password" v-model="config.okx.passphrase" placeholder="请输入 Passphrase" />
               </div>
             </div>
+          </div>
+
+          <div class="add-exchange-card" @click="showExchangeSelectModal = true">
+            <div class="add-plus">+</div>
+            <p>添加交易所</p>
           </div>
         </div>
 
@@ -171,6 +196,40 @@ function addSyncItem() {
         </div>
       </section>
     </div>
+
+    <!-- Exchange Selection Modal -->
+    <transition name="modal-fade">
+      <div v-if="showExchangeSelectModal" class="modal-overlay" @click.self="showExchangeSelectModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>添加交易所</h3>
+            <button class="close-btn" @click="showExchangeSelectModal = false">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="exchange-selector-grid">
+              <div 
+                class="selector-item" 
+                :class="{ disabled: activeExchanges.includes('binance') }"
+                @click="!activeExchanges.includes('binance') && addExchange('binance')"
+              >
+                <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040" alt="Binance" />
+                <span>Binance</span>
+                <div v-if="activeExchanges.includes('binance')" class="badge">已添加</div>
+              </div>
+              <div 
+                class="selector-item" 
+                :class="{ disabled: activeExchanges.includes('okx') }"
+                @click="!activeExchanges.includes('okx') && addExchange('okx')"
+              >
+                <img src="https://logo.svgcdn.com/token-branded/okx.svg" alt="OKX" />
+                <span>OKX</span>
+                <div v-if="activeExchanges.includes('okx')" class="badge">已添加</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- Enhanced Modal -->
     <transition name="modal-fade">
@@ -274,11 +333,105 @@ function addSyncItem() {
 
 .exchange-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
+}
+
+.exchange-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.remove-exchange-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: var(--transition);
+}
+
+.remove-exchange-btn:hover {
+  color: var(--danger);
+}
+
+.add-exchange-card {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  min-height: 200px;
+  transition: var(--transition);
+}
+
+.add-exchange-card:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: rgba(56, 189, 248, 0.02);
+}
+
+.exchange-selector-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.selector-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--surface-hover);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+}
+
+.selector-item:hover:not(.disabled) {
+  border-color: var(--primary-color);
+  transform: translateY(-4px);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.selector-item img {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+}
+
+.selector-item span {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.selector-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selector-item .badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: var(--success);
+  color: white;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 1rem;
+  font-weight: 700;
 }
 
 .exchange-logo {
