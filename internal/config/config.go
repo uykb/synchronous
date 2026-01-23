@@ -25,36 +25,41 @@ type SyncItem struct {
 	Symbol  string   `json:"symbol" mapstructure:"symbol"`
 }
 
+type BinanceConfig struct {
+	APIKey    string `json:"api_key" mapstructure:"api_key"`
+	APISecret string `json:"api_secret" mapstructure:"api_secret"`
+	Testnet   bool   `json:"testnet" mapstructure:"testnet"`
+}
+
+type OKXConfig struct {
+	APIKey     string `json:"api_key" mapstructure:"api_key"`
+	APISecret  string `json:"api_secret" mapstructure:"api_secret"`
+	Passphrase string `json:"passphrase" mapstructure:"passphrase"`
+}
+
+type BybitConfig struct {
+	APIKey    string `json:"api_key" mapstructure:"api_key"`
+	APISecret string `json:"api_secret" mapstructure:"api_secret"`
+}
+
+type SyncConfig struct {
+	Symbol        string  `json:"symbol" mapstructure:"symbol"`
+	PositionRatio float64 `json:"position_ratio" mapstructure:"position_ratio"`
+	MaxPosition   float64 `json:"max_position" mapstructure:"max_position"`
+	StopLossRatio float64 `json:"stop_loss_ratio" mapstructure:"stop_loss_ratio"`
+	OrderTimeout  int     `json:"order_timeout" mapstructure:"order_timeout"`
+	MaxRetries    int     `json:"max_retries" mapstructure:"max_retries"`
+}
+
 type Config struct {
 	Auth          AuthConfig `json:"auth" mapstructure:"auth"`
 	WebhookSecret string     `json:"webhook_secret" mapstructure:"webhook_secret"`
 	SyncItems     []SyncItem `json:"sync_items" mapstructure:"sync_items"`
 
-	Binance struct {
-		APIKey    string `json:"api_key" mapstructure:"api_key"`
-		APISecret string `json:"api_secret" mapstructure:"api_secret"`
-		Testnet   bool   `json:"testnet" mapstructure:"testnet"`
-	} `json:"binance" mapstructure:"binance"`
-
-	OKX struct {
-		APIKey     string `json:"api_key" mapstructure:"api_key"`
-		APISecret  string `json:"api_secret" mapstructure:"api_secret"`
-		Passphrase string `json:"passphrase" mapstructure:"passphrase"`
-	} `json:"okx" mapstructure:"okx"`
-
-	Bybit struct {
-		APIKey    string `json:"api_key" mapstructure:"api_key"`
-		APISecret string `json:"api_secret" mapstructure:"api_secret"`
-	} `json:"bybit" mapstructure:"bybit"`
-
-	Sync struct {
-		Symbol        string  `json:"symbol" mapstructure:"symbol"`
-		PositionRatio float64 `json:"position_ratio" mapstructure:"position_ratio"`
-		MaxPosition   float64 `json:"max_position" mapstructure:"max_position"`
-		StopLossRatio float64 `json:"stop_loss_ratio" mapstructure:"stop_loss_ratio"`
-		OrderTimeout  int     `json:"order_timeout" mapstructure:"order_timeout"`
-		MaxRetries    int     `json:"max_retries" mapstructure:"max_retries"`
-	} `json:"sync" mapstructure:"sync"`
+	Binance BinanceConfig `json:"binance" mapstructure:"binance"`
+	OKX     OKXConfig     `json:"okx" mapstructure:"okx"`
+	Bybit   BybitConfig   `json:"bybit" mapstructure:"bybit"`
+	Sync    SyncConfig    `json:"sync" mapstructure:"sync"`
 
 	mu sync.RWMutex `json:"-"`
 }
@@ -170,4 +175,88 @@ func (c *Config) Save() error {
 		return err
 	}
 	return os.WriteFile("config.json", data, 0644)
+}
+
+func (c *Config) GetAuth() AuthConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Auth
+}
+
+func (c *Config) GetWebhookSecret() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.WebhookSecret
+}
+
+func (c *Config) GetSyncItems() []SyncItem {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	// Return a copy to avoid race on slice elements if modified elsewhere
+	items := make([]SyncItem, len(c.SyncItems))
+	copy(items, c.SyncItems)
+	return items
+}
+
+func (c *Config) GetBinance() BinanceConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Binance
+}
+
+func (c *Config) GetOKX() OKXConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.OKX
+}
+
+func (c *Config) GetBybit() BybitConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Bybit
+}
+
+func (c *Config) GetSync() SyncConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Sync
+}
+
+func (c *Config) Update(binance BinanceConfig, okx OKXConfig, bybit BybitConfig, sync SyncConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Binance = binance
+	c.OKX = okx
+	c.Bybit = bybit
+	c.Sync = sync
+}
+
+func (c *Config) UpdateAuth(auth AuthConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.Auth = auth
+}
+
+func (c *Config) SetSyncItems(items []SyncItem) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.SyncItems = items
+}
+
+func (c *Config) AddSyncItem(item SyncItem) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.SyncItems = append(c.SyncItems, item)
+}
+
+func (c *Config) DeleteSyncItem(id string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i, item := range c.SyncItems {
+		if item.ID == id {
+			c.SyncItems = append(c.SyncItems[:i], c.SyncItems[i+1:]...)
+			return true
+		}
+	}
+	return false
 }

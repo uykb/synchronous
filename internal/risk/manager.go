@@ -15,16 +15,17 @@ func NewManager(cfg *config.Config) *Manager {
 }
 
 func (m *Manager) PreOrderCheck(signal *models.TradingSignal) error {
+	syncCfg := m.config.GetSync()
 	// Check Symbol
-	if signal.Symbol != m.config.Sync.Symbol {
+	if signal.Symbol != syncCfg.Symbol {
 		// Sometimes Binance uses BTCUSDT and config might be BTC-USDT, handle normalization if needed
 		// For now, strict check
-		// return fmt.Errorf("symbol mismatch: %s != %s", signal.Symbol, m.config.Sync.Symbol)
+		// return fmt.Errorf("symbol mismatch: %s != %s", signal.Symbol, syncCfg.Symbol)
 	}
 
 	// Check Max Position
-	if signal.Quantity > m.config.Sync.MaxPosition {
-		return fmt.Errorf("quantity %.4f exceeds max position %.4f", signal.Quantity, m.config.Sync.MaxPosition)
+	if signal.Quantity > syncCfg.MaxPosition {
+		return fmt.Errorf("quantity %.4f exceeds max position %.4f", signal.Quantity, syncCfg.MaxPosition)
 	}
 
 	return nil

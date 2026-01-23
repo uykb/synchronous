@@ -99,16 +99,8 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 
 	log.Printf("Processing Signal from Stream [%s]: %s %s", msg.ID, signal.Side, signal.Symbol)
 
-	// 0. Idempotency Check
-	duplicate, err := IsDuplicate(ctx, signal.SignalID, signal.Source, signal.Quantity, signal.Price)
-	if err != nil {
-		log.Printf("Idempotency Check Error: %v", err)
-	}
-	if duplicate {
-		log.Printf("Duplicate Signal Detected, skipping: %s", signal.SignalID)
-		database.RDB.XAck(ctx, "signals:trading", "trading-group", msg.ID)
-		return
-	}
+	// Keep track of original quantity for idempotency keys
+	originalQuantity := signal.Quantity
 
 	// 1. Risk Check
 	if err := p.riskManager.PreOrderCheck(&signal); err != nil {
@@ -118,7 +110,7 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 	}
 
 	// 2. Calculate Position
-	signal.Quantity = signal.Quantity * p.config.Sync.PositionRatio
+	signal.Quantity = signal.Quantity * p.config.GetSync().PositionRatio
 
 	// 3. Execute Orders in Parallel
 	var wg sync.WaitGroup
@@ -127,8 +119,20 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 
 	go func() {
 		defer wg.Done()
+
+		// Idempotency Check (OKX)
+		duplicate, err := IsDuplicate(ctx, signal.SignalID, "okx", originalQuantity, signal.Price)
+		if err == nil && duplicate {
+			log.Printf("OKX Duplicate Signal Detected, skipping: %s", signal.SignalID)
+			return
+		}
+
 		res, err := p.okxExecutor.PlaceOrder(&signal)
 		okxErr = err
+		if okxErr == nil {
+			MarkProcessed(ctx, signal.SignalID, "okx", originalQuantity, signal.Price)
+		}
+
 		if res != nil {
 			database.SaveOrderResult(res)
 		}
@@ -142,8 +146,20 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 
 	go func() {
 		defer wg.Done()
+
+		// Idempotency Check (Bybit)
+		duplicate, err := IsDuplicate(ctx, signal.SignalID, "bybit", originalQuantity, signal.Price)
+		if err == nil && duplicate {
+			log.Printf("Bybit Duplicate Signal Detected, skipping: %s", signal.SignalID)
+			return
+		}
+
 		res, err := p.bybitExecutor.PlaceOrder(&signal)
 		bybitErr = err
+		if bybitErr == nil {
+			MarkProcessed(ctx, signal.SignalID, "bybit", originalQuantity, signal.Price)
+		}
+
 		if res != nil {
 			database.SaveOrderResult(res)
 		}

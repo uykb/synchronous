@@ -15,8 +15,9 @@ type BybitExecutor struct {
 }
 
 func NewBybitExecutor(cfg *config.Config) *BybitExecutor {
+	bybitCfg := cfg.GetBybit()
 	client := bybit.NewClient().
-		WithAuth(cfg.Bybit.APIKey, cfg.Bybit.APISecret)
+		WithAuth(bybitCfg.APIKey, bybitCfg.APISecret)
 	
 	return &BybitExecutor{
 		client: client,

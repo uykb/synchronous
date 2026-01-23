@@ -2,13 +2,26 @@ package auth
 
 import (
 	"errors"
+	"log"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pquerna/otp/totp"
 )
 
-var jwtKey = []byte("your_secret_key") // In production, this should be from env
+var jwtKey []byte
+
+func init() {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Println("WARNING: JWT_SECRET not set, using insecure default. DO NOT use in production!")
+		secret = "insecure-default-key-for-development-only"
+	} else if len(secret) < 32 {
+		log.Println("WARNING: JWT_SECRET should be at least 32 characters for security")
+	}
+	jwtKey = []byte(secret)
+}
 
 type Claims struct {
 	Username string `json:"username"`

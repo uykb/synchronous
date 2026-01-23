@@ -5,6 +5,7 @@ import (
 	"crypto-sync-bot/internal/config"
 	"crypto-sync-bot/internal/models"
 	"crypto-sync-bot/internal/processor"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -38,12 +39,13 @@ func (b *BinanceListener) Start() error {
 	b.mu.Unlock()
 
 	// Configure Testnet if needed
-	if b.config.Binance.Testnet {
+	binanceCfg := b.config.GetBinance()
+	if binanceCfg.Testnet {
 		futures.UseTestnet = true
 	}
 
 	// Initialize the client (optional, mostly for REST calls)
-	b.client = futures.NewClient(b.config.Binance.APIKey, b.config.Binance.APISecret)
+	b.client = futures.NewClient(binanceCfg.APIKey, binanceCfg.APISecret)
 
 	go b.connectWebSocket()
 
@@ -89,14 +91,25 @@ func (b *BinanceListener) connectWebSocket() {
 			doneC, stopC, err := futures.WsUserDataServe(listenKey, func(event *futures.WsUserDataEvent) {
 				if event.Event == "ORDER_TRADE_UPDATE" {
 					trade := event.OrderTradeUpdate
-					if trade.Status == "FILLED" && trade.Symbol == b.config.Sync.Symbol {
+					if trade.Status == "FILLED" && trade.Symbol == b.config.GetSync().Symbol {
+						qty, err := parseFloat(trade.AccumulatedFilledQty)
+						if err != nil {
+							log.Printf("Error parsing Quantity from Binance: %v", err)
+							return
+						}
+						price, err := parseFloat(trade.AveragePrice)
+						if err != nil {
+							log.Printf("Error parsing Price from Binance: %v", err)
+							return
+						}
+
 						signal := &models.TradingSignal{
 							SignalID:  strconv.FormatInt(trade.ID, 10),
 							Symbol:    trade.Symbol,
 							Side:      string(trade.Side),
 							OrderType: string(trade.Type),
-							Quantity:  mustParseFloat(trade.AccumulatedFilledQty),
-							Price:     mustParseFloat(trade.AveragePrice),
+							Quantity:  qty,
+							Price:     price,
 							Timestamp: event.Time,
 							Source:    "binance",
 						}
@@ -125,7 +138,10 @@ func (b *BinanceListener) Stop() {
 	close(b.stopChan)
 }
 
-func mustParseFloat(s string) float64 {
-	f, _ := strconv.ParseFloat(s, 64)
-	return f
+func parseFloat(s string) (float64, error) {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid numeric string %q: %w", s, err)
+	}
+	return f, nil
 }

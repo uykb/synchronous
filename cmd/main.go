@@ -83,17 +83,8 @@ func main() {
 	// 7. Initialize API
 	r := gin.Default()
 	
-	// Add CORS middleware for development
-	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
-	})
+	// Add CORS middleware
+	r.Use(CORSMiddleware())
 
 	apiHandler := api.NewAPI(cfg, proc)
 	apiHandler.SetupRoutes(r)
@@ -115,4 +106,30 @@ func main() {
 	binanceListener.Stop()
 	proc.Stop()
 	log.Println("Shutdown complete")
+}
+
+func CORSMiddleware() gin.HandlerFunc {
+	allowedOrigin := os.Getenv("CORS_ORIGIN")
+	if allowedOrigin == "" {
+		allowedOrigin = "http://localhost:5173" // Development default
+	}
+
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+
+		// Allow the configured origin or match it
+		if origin == allowedOrigin || allowedOrigin == "*" {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
 }

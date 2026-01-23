@@ -1,31 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
 import { useTradingStore } from '../stores/trading'
 
 const store = useTradingStore()
-
-let interval: any = null
-
-onMounted(() => {
-  // Simulate incoming signals if the bot is running
-  interval = setInterval(() => {
-    if (store.isRunning) {
-      const symbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT']
-      const sides = ['BUY', 'SELL']
-      const signal = {
-        time: new Date().toLocaleTimeString(),
-        symbol: symbols[Math.floor(Math.random() * symbols.length)],
-        side: sides[Math.floor(Math.random() * sides.length)],
-        price: (Math.random() * 50000 + 1000).toFixed(2)
-      }
-      store.addSignal(signal)
-    }
-  }, 5000)
-})
-
-onUnmounted(() => {
-  if (interval) clearInterval(interval)
-})
 </script>
 
 <template>

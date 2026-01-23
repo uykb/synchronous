@@ -23,16 +23,25 @@ func NewAPI(cfg *config.Config, proc *processor.SignalProcessor) *API {
 }
 
 func (a *API) SetupRoutes(r *gin.Engine) {
+	authLimiter := NewRateLimiter(5, time.Minute)
+	signalLimiter := NewRateLimiter(60, time.Minute)
+
 	api := r.Group("/api")
 	{
 		api.GET("/status", a.GetStatus)
 		api.GET("/system/ip", a.GetIP)
-		api.POST("/auth/setup", a.SetupAuth)
-		api.POST("/auth/verify", a.VerifyAuth)
+
+		authGroup := api.Group("/auth")
+		authGroup.Use(RateLimitMiddleware(authLimiter))
+		{
+			authGroup.POST("/setup", a.SetupAuth)
+			authGroup.POST("/verify", a.VerifyAuth)
+		}
+
 		api.POST("/restart", a.Restart)
 
-		// Webhook route with HMAC verification
-		api.POST("/signals", HMACVerification(a.cfg.WebhookSecret), a.PostSignal)
+		// Webhook route with HMAC verification and rate limiting
+		api.POST("/signals", RateLimitMiddleware(signalLimiter), HMACVerification(a.cfg.GetWebhookSecret()), a.PostSignal)
 
 		// Protected routes
 		protected := api.Group("/")
@@ -70,7 +79,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 func (a *API) GetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"is_configured": a.cfg.Auth.IsConfigured,
+		"is_configured": a.cfg.GetAuth().IsConfigured,
 		"version":      "1.0.0",
 	})
 }
@@ -93,15 +102,17 @@ func (a *API) GetIP(c *gin.Context) {
 }
 
 func (a *API) SetupAuth(c *gin.Context) {
-	if a.cfg.Auth.IsConfigured {
+	authCfg := a.cfg.GetAuth()
+	if authCfg.IsConfigured {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Already configured"})
 		return
 	}
 
 	secret, url, _ := auth.GenerateTOTPSecret("admin")
 
-	a.cfg.Auth.TOTPSecret = secret
-	a.cfg.Auth.IsConfigured = true
+	authCfg.TOTPSecret = secret
+	authCfg.IsConfigured = true
+	a.cfg.UpdateAuth(authCfg)
 	a.cfg.Save()
 
 	c.JSON(http.StatusOK, gin.H{
@@ -120,7 +131,7 @@ func (a *API) VerifyAuth(c *gin.Context) {
 	}
 
 	// For simplicity, we check TOTP.
-	if !auth.VerifyTOTP(req.Code, a.cfg.Auth.TOTPSecret) {
+	if !auth.VerifyTOTP(req.Code, a.cfg.GetAuth().TOTPSecret) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid TOTP code"})
 		return
 	}
@@ -131,7 +142,7 @@ func (a *API) VerifyAuth(c *gin.Context) {
 
 func (a *API) Restart(c *gin.Context) {
 	// Check auth if configured
-	if a.cfg.Auth.IsConfigured {
+	if a.cfg.GetAuth().IsConfigured {
 		token := c.GetHeader("Authorization")
 		if token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
@@ -153,7 +164,41 @@ func (a *API) Restart(c *gin.Context) {
 }
 
 func (a *API) GetConfig(c *gin.Context) {
-	c.JSON(http.StatusOK, a.cfg)
+	type SafeExchangeConfig struct {
+		Enabled bool `json:"enabled"`
+	}
+
+	type SafeBinanceConfig struct {
+		Enabled bool `json:"enabled"`
+		Testnet bool `json:"testnet"`
+	}
+
+	binanceCfg := a.cfg.GetBinance()
+	okxCfg := a.cfg.GetOKX()
+	bybitCfg := a.cfg.GetBybit()
+
+	safe := struct {
+		Binance   SafeBinanceConfig  `json:"binance"`
+		OKX       SafeExchangeConfig `json:"okx"`
+		Bybit     SafeExchangeConfig `json:"bybit"`
+		Sync      interface{}        `json:"sync"`
+		SyncItems []config.SyncItem  `json:"sync_items"`
+	}{
+		Binance: SafeBinanceConfig{
+			Enabled: binanceCfg.APIKey != "",
+			Testnet: binanceCfg.Testnet,
+		},
+		OKX: SafeExchangeConfig{
+			Enabled: okxCfg.APIKey != "",
+		},
+		Bybit: SafeExchangeConfig{
+			Enabled: bybitCfg.APIKey != "",
+		},
+		Sync:      a.cfg.GetSync(),
+		SyncItems: a.cfg.GetSyncItems(),
+	}
+
+	c.JSON(http.StatusOK, safe)
 }
 
 func (a *API) UpdateConfig(c *gin.Context) {
@@ -165,17 +210,14 @@ func (a *API) UpdateConfig(c *gin.Context) {
 
 	// Update fields selectively or overwrite? 
 	// For now, let's just update exchange keys and sync settings.
-	a.cfg.Binance = newCfg.Binance
-	a.cfg.OKX = newCfg.OKX
-	a.cfg.Bybit = newCfg.Bybit
-	a.cfg.Sync = newCfg.Sync
+	a.cfg.Update(newCfg.Binance, newCfg.OKX, newCfg.Bybit, newCfg.Sync)
 	a.cfg.Save()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Config updated"})
 }
 
 func (a *API) GetSyncItems(c *gin.Context) {
-	c.JSON(http.StatusOK, a.cfg.SyncItems)
+	c.JSON(http.StatusOK, a.cfg.GetSyncItems())
 }
 
 func (a *API) AddSyncItem(c *gin.Context) {
@@ -185,20 +227,17 @@ func (a *API) AddSyncItem(c *gin.Context) {
 		return
 	}
 
-	a.cfg.SyncItems = append(a.cfg.SyncItems, item)
+	a.cfg.AddSyncItem(item)
 	a.cfg.Save()
 	c.JSON(http.StatusOK, item)
 }
 
 func (a *API) DeleteSyncItem(c *gin.Context) {
 	id := c.Param("id")
-	for i, item := range a.cfg.SyncItems {
-		if item.ID == id {
-			a.cfg.SyncItems = append(a.cfg.SyncItems[:i], a.cfg.SyncItems[i+1:]...)
-			a.cfg.Save()
-			c.JSON(http.StatusOK, gin.H{"message": "Deleted"})
-			return
-		}
+	if a.cfg.DeleteSyncItem(id) {
+		a.cfg.Save()
+		c.JSON(http.StatusOK, gin.H{"message": "Deleted"})
+		return
 	}
 	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 }
