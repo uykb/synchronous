@@ -32,8 +32,6 @@ async function handleLogin() {
         <div class="logo">
           <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg" alt="BTC" />
         </div>
-        <h1>安全访问</h1>
-        <p>需要验证以继续</p>
       </div>
       
       <div class="login-body">
@@ -99,16 +97,6 @@ async function handleLogin() {
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-.login-header h1 {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.login-header p {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
 }
 
 .input-group {
