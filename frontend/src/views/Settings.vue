@@ -142,7 +142,7 @@ const configuredExchanges = computed(() => {
     exchanges.push({ id: 'okx', name: 'OKX', icon: 'https://logo.svgcdn.com/token-branded/okx.svg' })
   }
   if (config.value.bybit?.api_key || activeExchanges.value.includes('bybit')) {
-    exchanges.push({ id: 'bybit', name: 'Bybit', icon: 'https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040' })
+    exchanges.push({ id: 'bybit', name: 'Bybit', icon: 'https://assets.staticimg.com/cms/media/1FwCPtozpXRpEYCGZojJfRF7O6aw9Vxi0I05yOvmR.png' })
   }
   return exchanges
 })
@@ -355,7 +355,7 @@ const addSyncItem = async () => {
           <div v-if="activeExchanges.includes('bybit')" class="exchange-card">
             <div class="exchange-header">
               <div class="exchange-info">
-                <img src="https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040" alt="Bybit" class="exchange-logo" />
+                <img src="https://assets.staticimg.com/cms/media/1FwCPtozpXRpEYCGZojJfRF7O6aw9Vxi0I05yOvmR.png" alt="Bybit" class="exchange-logo" />
                 <h3>Bybit</h3>
                 <span :class="['status-badge', isExchangeConfigured('bybit') ? 'configured' : 'incomplete']">
                   {{ isExchangeConfigured('bybit') ? '✅ 已配置' : '⚠️ 未完成' }}
@@ -461,7 +461,7 @@ const addSyncItem = async () => {
                 :class="{ disabled: activeExchanges.includes('bybit') }"
                 @click="!activeExchanges.includes('bybit') && addExchange('bybit')"
               >
-                <img src="https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040" alt="Bybit" />
+                <img src="https://assets.staticimg.com/cms/media/1FwCPtozpXRpEYCGZojJfRF7O6aw9Vxi0I05yOvmR.png" alt="Bybit" />
                 <span>Bybit</span>
                 <div v-if="activeExchanges.includes('bybit')" class="badge">已添加</div>
               </div>
