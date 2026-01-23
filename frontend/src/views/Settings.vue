@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useTradingStore } from '../stores/trading'
+import api from '../api/client'
 import axios from 'axios'
+
+interface SyncItem {
+  id: string
+  name: string
+  symbol: string
+  source: string
+  targets: string[]
+  enabled: boolean
+}
 
 const tradingStore = useTradingStore()
 
 const serverIp = ref('正在获取...')
 const copied = ref(false)
+const loading = ref(true)
 
 async function fetchIp() {
   try {
@@ -18,8 +29,46 @@ async function fetchIp() {
   }
 }
 
-onMounted(() => {
-  fetchIp()
+const fetchConfig = async () => {
+  try {
+    const res = await api.get('/config')
+    // Merge with local state (API returns partial data for security)
+    if (res.data.binance) {
+      config.value.binance.testnet = res.data.binance.testnet
+      // Note: API keys are not returned for security, only "enabled" status
+    }
+    if (res.data.sync) {
+      config.value.sync = res.data.sync
+    }
+    
+    // Set activeExchanges based on what's enabled
+    activeExchanges.value = []
+    if (res.data.binance?.enabled) activeExchanges.value.push('binance')
+    if (res.data.okx?.enabled) activeExchanges.value.push('okx')
+    if (res.data.bybit?.enabled) activeExchanges.value.push('bybit')
+  } catch (err) {
+    console.error('Failed to fetch config:', err)
+  }
+}
+
+const fetchSyncItems = async () => {
+  try {
+    const res = await api.get('/sync-items')
+    syncItems.value = res.data || []
+  } catch (err) {
+    console.error('Failed to fetch sync items:', err)
+  }
+}
+
+onMounted(async () => {
+  loading.value = true
+  try {
+    await fetchIp()
+    await fetchConfig()
+    await fetchSyncItems()
+  } finally {
+    loading.value = false
+  }
 })
 
 function copyIp() {
@@ -77,14 +126,24 @@ const config = ref({
   bybit: {
     api_key: '',
     api_secret: ''
+  },
+  sync: {
+    enabled: true,
+    check_interval_ms: 5000
   }
 })
 
 const configuredExchanges = computed(() => {
   const exchanges = []
-  if (config.value.binance?.api_key) exchanges.push({ id: 'binance', name: 'Binance', icon: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040' })
-  if (config.value.okx?.api_key) exchanges.push({ id: 'okx', name: 'OKX', icon: 'https://logo.svgcdn.com/token-branded/okx.svg' })
-  if (config.value.bybit?.api_key) exchanges.push({ id: 'bybit', name: 'Bybit', icon: 'https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040' })
+  if (config.value.binance?.api_key || activeExchanges.value.includes('binance')) {
+    exchanges.push({ id: 'binance', name: 'Binance', icon: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040' })
+  }
+  if (config.value.okx?.api_key || activeExchanges.value.includes('okx')) {
+    exchanges.push({ id: 'okx', name: 'OKX', icon: 'https://logo.svgcdn.com/token-branded/okx.svg' })
+  }
+  if (config.value.bybit?.api_key || activeExchanges.value.includes('bybit')) {
+    exchanges.push({ id: 'bybit', name: 'Bybit', icon: 'https://cryptologos.cc/logos/bybit-bit-logo.svg?v=040' })
+  }
   return exchanges
 })
 
@@ -94,13 +153,13 @@ const filteredTargets = computed(() => {
 })
 
 const isExchangeConfigured = (exchangeId: string) => {
-  if (exchangeId === 'binance') return !!config.value.binance.api_key && !!config.value.binance.api_secret
-  if (exchangeId === 'okx') return !!config.value.okx.api_key && !!config.value.okx.api_secret && !!config.value.okx.passphrase
-  if (exchangeId === 'bybit') return !!config.value.bybit.api_key && !!config.value.bybit.api_secret
+  if (exchangeId === 'binance') return (!!config.value.binance.api_key && !!config.value.binance.api_secret) || activeExchanges.value.includes('binance')
+  if (exchangeId === 'okx') return (!!config.value.okx.api_key && !!config.value.okx.api_secret && !!config.value.okx.passphrase) || activeExchanges.value.includes('okx')
+  if (exchangeId === 'bybit') return (!!config.value.bybit.api_key && !!config.value.bybit.api_secret) || activeExchanges.value.includes('bybit')
   return false
 }
 
-const activeExchanges = ref([])
+const activeExchanges = ref<string[]>([])
 const showExchangeSelectModal = ref(false)
 
 function removeExchange(exchange: string) {
@@ -114,17 +173,15 @@ function addExchange(exchange: string) {
   showExchangeSelectModal.value = false
 }
 
-const syncItems = ref([
-  { id: 1, name: 'BTC Arbitrage', symbol: 'BTC-USDT', source: 'binance', targets: ['okx', 'bybit'] },
-  { id: 2, name: 'ETH Sync', symbol: 'ETH-USDT', source: 'okx', targets: ['bybit'] }
-])
+const syncItems = ref<SyncItem[]>([])
 
 const showAddModal = ref(false)
 const newItem = ref({
   name: '',
   symbol: '',
   source: '',
-  targets: [] as string[]
+  targets: [] as string[],
+  enabled: true
 })
 
 // Initialize source when modal opens or exchanges change
@@ -143,9 +200,19 @@ function toggleTarget(id: string) {
   }
 }
 
-function saveConfig() {
-  console.log('Saving config:', config.value)
-  alert('配置保存成功！')
+const saveConfig = async () => {
+  try {
+    await api.put('/config', {
+      binance: config.value.binance,
+      okx: config.value.okx,
+      bybit: config.value.bybit,
+      sync: config.value.sync
+    })
+    alert('配置已保存！需要重启服务以应用新配置。')
+  } catch (err) {
+    console.error('Failed to save config:', err)
+    alert('保存失败: ' + (err as Error).message)
+  }
 }
 
 function restartBot() {
@@ -157,25 +224,40 @@ function restartBot() {
   alert('机器人重启命令已发送。')
 }
 
-function removeSyncItem(id: number) {
-  syncItems.value = syncItems.value.filter(item => item.id !== id)
+const removeSyncItem = async (id: string) => {
+  try {
+    await api.delete(`/sync-items/${id}`)
+    syncItems.value = syncItems.value.filter(item => item.id !== id)
+  } catch (err) {
+    console.error('Failed to delete sync item:', err)
+    alert('删除失败: ' + (err as Error).message)
+  }
 }
 
-function addSyncItem() {
-  if (!newItem.value.name || !newItem.value.symbol) return
+const addSyncItem = async () => {
+  if (!newItem.value.name || !newItem.value.symbol || !newItem.value.source || newItem.value.targets.length === 0) {
+    alert('请填写完整的规则信息')
+    return
+  }
   
-  syncItems.value.push({
-    ...newItem.value,
-    id: Date.now(),
-    targets: [...newItem.value.targets]
-  })
+  const item = {
+    id: Date.now().toString(),
+    name: newItem.value.name,
+    symbol: newItem.value.symbol,
+    source: newItem.value.source,
+    targets: [...newItem.value.targets],
+    enabled: true
+  }
   
-  showAddModal.value = false
-  newItem.value = {
-    name: '',
-    symbol: '',
-    source: availableSources.value[0]?.id || '',
-    targets: []
+  try {
+    const res = await api.post('/sync-items', item)
+    syncItems.value.push(res.data)
+    showAddModal.value = false
+    // Reset form
+    newItem.value = { name: '', symbol: '', source: '', targets: [], enabled: true }
+  } catch (err) {
+    console.error('Failed to add sync item:', err)
+    alert('添加失败: ' + (err as Error).message)
   }
 }
 </script>
@@ -204,7 +286,11 @@ function addSyncItem() {
       </div>
     </header>
     
-    <div class="settings-layout">
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>正在加载配置...</p>
+    </div>
+    <div v-else class="settings-layout">
       <section class="settings-section">
         <div class="section-title">
           <span class="icon">🔑</span>
@@ -446,6 +532,29 @@ function addSyncItem() {
 .settings {
   --warning: #f59e0b;
   animation: fadeIn 0.4s ease-out;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(56, 189, 248, 0.1);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes fadeIn {
