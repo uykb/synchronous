@@ -1,8 +1,34 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTradingStore } from '../stores/trading'
+import axios from 'axios'
 
 const tradingStore = useTradingStore()
+
+const serverIp = ref('正在获取...')
+const copied = ref(false)
+
+async function fetchIp() {
+  try {
+    const response = await axios.get('/api/system/ip')
+    serverIp.value = response.data.ip
+  } catch (error) {
+    console.error('Failed to fetch IP:', error)
+    serverIp.value = '获取失败'
+  }
+}
+
+onMounted(() => {
+  fetchIp()
+})
+
+function copyIp() {
+  navigator.clipboard.writeText(serverIp.value)
+  copied.value = true
+  setTimeout(() => {
+    copied.value = false
+  }, 2000)
+}
 
 const config = ref({
   binance: {
@@ -84,8 +110,25 @@ function addSyncItem() {
 <template>
   <div class="settings">
     <header class="settings-header">
-      <h1>设置</h1>
-      <p class="subtitle">配置您的交易所凭据和同步规则</p>
+      <div class="header-content">
+        <div class="header-title">
+          <h1>设置</h1>
+          <p class="subtitle">配置您的交易所凭据和同步规则</p>
+        </div>
+        <div class="server-ip-card">
+          <div class="ip-info">
+            <span class="ip-label">服务器 IP (用于添加白名单)</span>
+            <div class="ip-value-wrapper">
+              <code class="ip-value">{{ serverIp }}</code>
+              <button class="copy-ip-btn" @click="copyIp" :class="{ 'is-copied': copied }" :disabled="serverIp === '正在获取...' || serverIp === '获取失败'">
+                <span v-if="!copied" class="btn-icon">📋</span>
+                <span v-else class="btn-icon">✅</span>
+                {{ copied ? '已复制' : '复制' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </header>
     
     <div class="settings-layout">
@@ -291,6 +334,89 @@ function addSyncItem() {
 
 .settings-header {
   margin-bottom: 2.5rem;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.server-ip-card {
+  background: rgba(56, 189, 248, 0.05);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.25rem;
+  min-width: 280px;
+  animation: slideInRight 0.5s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.ip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ip-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--primary-color);
+  letter-spacing: 0.05em;
+}
+
+.ip-value-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.ip-value {
+  font-family: monospace;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.copy-ip-btn {
+  background: var(--surface-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  height: auto;
+  min-width: 80px;
+}
+
+.copy-ip-btn:hover {
+  background: var(--primary-color);
+  color: #000;
+  border-color: var(--primary-color);
+}
+
+.copy-ip-btn.is-copied {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+}
+
+.btn-icon {
+  margin-right: 0.4rem;
+  font-size: 0.9rem;
 }
 
 .subtitle {
@@ -675,6 +801,18 @@ input:focus, select:focus {
 
 .modal-fade-enter-from, .modal-fade-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .server-ip-card {
+    width: 100%;
+    min-width: unset;
+  }
 }
 
 @media (max-width: 640px) {

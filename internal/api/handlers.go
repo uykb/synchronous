@@ -5,6 +5,7 @@ import (
 	"crypto-sync-bot/internal/config"
 	"crypto-sync-bot/internal/models"
 	"crypto-sync-bot/internal/processor"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -25,6 +26,7 @@ func (a *API) SetupRoutes(r *gin.Engine) {
 	api := r.Group("/api")
 	{
 		api.GET("/status", a.GetStatus)
+		api.GET("/system/ip", a.GetIP)
 		api.POST("/auth/setup", a.SetupAuth)
 		api.POST("/auth/verify", a.VerifyAuth)
 		api.POST("/restart", a.Restart)
@@ -71,6 +73,23 @@ func (a *API) GetStatus(c *gin.Context) {
 		"is_configured": a.cfg.Auth.IsConfigured,
 		"version":      "1.0.0",
 	})
+}
+
+func (a *API) GetIP(c *gin.Context) {
+	resp, err := http.Get("https://api.ipify.org")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch IP"})
+		return
+	}
+	defer resp.Body.Close()
+
+	ip, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ip": string(ip)})
 }
 
 func (a *API) SetupAuth(c *gin.Context) {
