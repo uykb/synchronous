@@ -10,7 +10,17 @@ const authStore = useAuthStore()
 const setupData = ref<any>(null)
 const code = ref('')
 const loading = ref(false)
+const copied = ref(false)
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
+
+function copySecret() {
+  if (!setupData.value?.totp_secret) return
+  navigator.clipboard.writeText(setupData.value.totp_secret)
+  copied.value = true
+  setTimeout(() => {
+    copied.value = false
+  }, 2000)
+}
 
 async function handleSetup() {
   loading.value = true
@@ -91,7 +101,12 @@ async function handleVerify() {
         
         <div class="secret-box">
           <label>手动输入密钥</label>
-          <code>{{ setupData.totp_secret }}</code>
+          <div class="secret-value-wrapper">
+            <code>{{ setupData.totp_secret }}</code>
+            <button class="copy-btn" @click="copySecret" :class="{ 'is-copied': copied }">
+              {{ copied ? '已复制' : '复制' }}
+            </button>
+          </div>
         </div>
 
         <div class="verify-section">
@@ -275,6 +290,7 @@ async function handleVerify() {
   border-radius: 8px;
   margin-bottom: 2rem;
   border: 1px solid var(--border-color);
+  text-align: left;
 }
 
 .secret-box label {
@@ -285,11 +301,45 @@ async function handleVerify() {
   margin-bottom: 0.5rem;
 }
 
+.secret-value-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
 .secret-box code {
   color: var(--primary-color);
   font-weight: 700;
   font-family: monospace;
   font-size: 1.125rem;
+  word-break: break-all;
+  white-space: pre-wrap;
+  display: block;
+  flex: 1;
+}
+
+.copy-btn {
+  background: var(--surface-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.copy-btn:hover {
+  background: var(--primary-color);
+  color: #000;
+}
+
+.copy-btn.is-copied {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
 }
 
 .verify-section {
