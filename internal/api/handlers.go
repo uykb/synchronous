@@ -177,6 +177,7 @@ func (a *API) GetConfig(c *gin.Context) {
 	okxCfg := a.cfg.GetOKX()
 	bybitCfg := a.cfg.GetBybit()
 	backpackCfg := a.cfg.GetBackpack()
+	lighterCfg := a.cfg.GetLighter()
 
 	maskKey := func(key string) string {
 		if len(key) < 8 {
@@ -190,6 +191,7 @@ func (a *API) GetConfig(c *gin.Context) {
 		OKX       ExchangeStatus     `json:"okx"`
 		Bybit     ExchangeStatus     `json:"bybit"`
 		Backpack  ExchangeStatus     `json:"backpack"`
+		Lighter   ExchangeStatus     `json:"lighter"`
 		Sync      interface{}        `json:"sync"`
 		SyncItems []config.SyncItem  `json:"sync_items"`
 	}{
@@ -209,6 +211,10 @@ func (a *API) GetConfig(c *gin.Context) {
 		Backpack: ExchangeStatus{
 			Enabled:    backpackCfg.APIKey != "",
 			APIKeyHint: maskKey(backpackCfg.APIKey),
+		},
+		Lighter: ExchangeStatus{
+			Enabled:    lighterCfg.APIKey != "",
+			APIKeyHint: maskKey(lighterCfg.APIKey),
 		},
 		Sync:      a.cfg.GetSync(),
 		SyncItems: a.cfg.GetSyncItems(),
@@ -267,6 +273,8 @@ func (a *API) TestExchangeConnection(c *gin.Context) {
 		enabled = a.cfg.GetBybit().APIKey != ""
 	case "backpack":
 		enabled = a.cfg.GetBackpack().APIKey != ""
+	case "lighter":
+		enabled = a.cfg.GetLighter().APIKey != ""
 	}
 
 	if !enabled {

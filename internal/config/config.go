@@ -47,6 +47,12 @@ type BackpackConfig struct {
 	APISecret string `json:"api_secret" mapstructure:"api_secret"`
 }
 
+type LighterConfig struct {
+	APIKey       string `json:"api_key" mapstructure:"api_key"`
+	APISecret    string `json:"api_secret" mapstructure:"api_secret"`
+	AccountIndex int    `json:"account_index" mapstructure:"account_index"`
+}
+
 type SyncConfig struct {
 	Symbol        string  `json:"symbol" mapstructure:"symbol"`
 	PositionRatio float64 `json:"position_ratio" mapstructure:"position_ratio"`
@@ -65,6 +71,7 @@ type Config struct {
 	OKX     OKXConfig     `json:"okx" mapstructure:"okx"`
 	Bybit   BybitConfig   `json:"bybit" mapstructure:"bybit"`
 	Backpack BackpackConfig `json:"backpack" mapstructure:"backpack"`
+	Lighter LighterConfig `json:"lighter" mapstructure:"lighter"`
 	Sync    SyncConfig    `json:"sync" mapstructure:"sync"`
 
 	mu sync.RWMutex `json:"-"`
@@ -175,6 +182,16 @@ func (c *Config) decryptFields(key string) {
 			c.Backpack.APISecret = decrypted
 		}
 	}
+	if c.Lighter.APIKey != "" {
+		if decrypted, err := auth.Decrypt(c.Lighter.APIKey, key); err == nil {
+			c.Lighter.APIKey = decrypted
+		}
+	}
+	if c.Lighter.APISecret != "" {
+		if decrypted, err := auth.Decrypt(c.Lighter.APISecret, key); err == nil {
+			c.Lighter.APISecret = decrypted
+		}
+	}
 }
 
 func (c *Config) Save() error {
@@ -238,6 +255,12 @@ func (c *Config) GetBackpack() BackpackConfig {
 	return c.Backpack
 }
 
+func (c *Config) GetLighter() LighterConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Lighter
+}
+
 func (c *Config) GetSync() SyncConfig {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -293,6 +316,13 @@ func (c *Config) UpdateExchange(exchangeID string, apiKey, apiSecret, passphrase
 		if apiSecret != "" {
 			c.Backpack.APISecret = apiSecret
 		}
+	case "lighter":
+		if apiKey != "" {
+			c.Lighter.APIKey = apiKey
+		}
+		if apiSecret != "" {
+			c.Lighter.APISecret = apiSecret
+		}
 	}
 }
 
@@ -310,6 +340,8 @@ func (c *Config) DeleteExchange(exchangeID string) {
 		c.Bybit = BybitConfig{}
 	case "backpack":
 		c.Backpack = BackpackConfig{}
+	case "lighter":
+		c.Lighter = LighterConfig{}
 	}
 }
 

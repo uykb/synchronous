@@ -51,7 +51,8 @@ const exchangeStatus = ref<Record<string, ExchangeStatus>>({
   binance: { enabled: false, api_key_hint: '' },
   okx: { enabled: false, api_key_hint: '' },
   bybit: { enabled: false, api_key_hint: '' },
-  backpack: { enabled: false, api_key_hint: '' }
+  backpack: { enabled: false, api_key_hint: '' },
+  lighter: { enabled: false, api_key_hint: '' }
 })
 
 const syncConfig = ref({
@@ -83,6 +84,7 @@ const fetchConfig = async () => {
     exchangeStatus.value.okx = res.data.okx || { enabled: false, api_key_hint: '' }
     exchangeStatus.value.bybit = res.data.bybit || { enabled: false, api_key_hint: '' }
     exchangeStatus.value.backpack = res.data.backpack || { enabled: false, api_key_hint: '' }
+    exchangeStatus.value.lighter = res.data.lighter || { enabled: false, api_key_hint: '' }
 
     activeExchanges.value = Object.entries(exchangeStatus.value)
       .filter(([_, status]) => status.enabled)
