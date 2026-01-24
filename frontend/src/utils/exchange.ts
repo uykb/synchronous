@@ -35,7 +35,7 @@ export const EXCHANGES: ExchangeInfo[] = [
   {
     id: 'bybit',
     name: 'Bybit',
-    icon: 'https://cryptologos.cc/logos/bitcoin-btc-logo.svg',
+    icon: 'https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png',
     fields: [
       { key: 'api_key', label: 'API Key', type: 'password', placeholder: '请输入 API Key' },
       { key: 'api_secret', label: 'Secret Key', type: 'password', placeholder: '请输入 Secret Key' }
@@ -53,7 +53,7 @@ export const EXCHANGES: ExchangeInfo[] = [
   {
     id: 'lighter',
     name: 'Lighter',
-    icon: 'https://pbs.twimg.com/profile_images/1770170088498835456/4Rk2UIln_400x400.jpg',
+    icon: 'https://framerusercontent.com/images/PwXZowDeTtB9awXKHOIK8lnD4.png',
     fields: [
       { key: 'api_key', label: 'API Key', type: 'password', placeholder: '请输入 API 公钥' },
       { key: 'api_secret', label: 'API Secret', type: 'password', placeholder: '请输入 API 私钥' }
