@@ -42,6 +42,11 @@ type BybitConfig struct {
 	APISecret string `json:"api_secret" mapstructure:"api_secret"`
 }
 
+type BackpackConfig struct {
+	APIKey    string `json:"api_key" mapstructure:"api_key"`
+	APISecret string `json:"api_secret" mapstructure:"api_secret"`
+}
+
 type SyncConfig struct {
 	Symbol        string  `json:"symbol" mapstructure:"symbol"`
 	PositionRatio float64 `json:"position_ratio" mapstructure:"position_ratio"`
@@ -59,6 +64,7 @@ type Config struct {
 	Binance BinanceConfig `json:"binance" mapstructure:"binance"`
 	OKX     OKXConfig     `json:"okx" mapstructure:"okx"`
 	Bybit   BybitConfig   `json:"bybit" mapstructure:"bybit"`
+	Backpack BackpackConfig `json:"backpack" mapstructure:"backpack"`
 	Sync    SyncConfig    `json:"sync" mapstructure:"sync"`
 
 	mu sync.RWMutex `json:"-"`
@@ -159,6 +165,16 @@ func (c *Config) decryptFields(key string) {
 			c.Bybit.APISecret = decrypted
 		}
 	}
+	if c.Backpack.APIKey != "" {
+		if decrypted, err := auth.Decrypt(c.Backpack.APIKey, key); err == nil {
+			c.Backpack.APIKey = decrypted
+		}
+	}
+	if c.Backpack.APISecret != "" {
+		if decrypted, err := auth.Decrypt(c.Backpack.APISecret, key); err == nil {
+			c.Backpack.APISecret = decrypted
+		}
+	}
 }
 
 func (c *Config) Save() error {
@@ -216,6 +232,12 @@ func (c *Config) GetBybit() BybitConfig {
 	return c.Bybit
 }
 
+func (c *Config) GetBackpack() BackpackConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Backpack
+}
+
 func (c *Config) GetSync() SyncConfig {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -264,6 +286,13 @@ func (c *Config) UpdateExchange(exchangeID string, apiKey, apiSecret, passphrase
 		if apiSecret != "" {
 			c.Bybit.APISecret = apiSecret
 		}
+	case "backpack":
+		if apiKey != "" {
+			c.Backpack.APIKey = apiKey
+		}
+		if apiSecret != "" {
+			c.Backpack.APISecret = apiSecret
+		}
 	}
 }
 
@@ -279,6 +308,8 @@ func (c *Config) DeleteExchange(exchangeID string) {
 		c.OKX = OKXConfig{}
 	case "bybit":
 		c.Bybit = BybitConfig{}
+	case "backpack":
+		c.Backpack = BackpackConfig{}
 	}
 }
 

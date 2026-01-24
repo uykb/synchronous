@@ -176,6 +176,7 @@ func (a *API) GetConfig(c *gin.Context) {
 	binanceCfg := a.cfg.GetBinance()
 	okxCfg := a.cfg.GetOKX()
 	bybitCfg := a.cfg.GetBybit()
+	backpackCfg := a.cfg.GetBackpack()
 
 	maskKey := func(key string) string {
 		if len(key) < 8 {
@@ -188,6 +189,7 @@ func (a *API) GetConfig(c *gin.Context) {
 		Binance   ExchangeStatus     `json:"binance"`
 		OKX       ExchangeStatus     `json:"okx"`
 		Bybit     ExchangeStatus     `json:"bybit"`
+		Backpack  ExchangeStatus     `json:"backpack"`
 		Sync      interface{}        `json:"sync"`
 		SyncItems []config.SyncItem  `json:"sync_items"`
 	}{
@@ -203,6 +205,10 @@ func (a *API) GetConfig(c *gin.Context) {
 		Bybit: ExchangeStatus{
 			Enabled:    bybitCfg.APIKey != "",
 			APIKeyHint: maskKey(bybitCfg.APIKey),
+		},
+		Backpack: ExchangeStatus{
+			Enabled:    backpackCfg.APIKey != "",
+			APIKeyHint: maskKey(backpackCfg.APIKey),
 		},
 		Sync:      a.cfg.GetSync(),
 		SyncItems: a.cfg.GetSyncItems(),
@@ -259,6 +265,8 @@ func (a *API) TestExchangeConnection(c *gin.Context) {
 		enabled = a.cfg.GetOKX().APIKey != ""
 	case "bybit":
 		enabled = a.cfg.GetBybit().APIKey != ""
+	case "backpack":
+		enabled = a.cfg.GetBackpack().APIKey != ""
 	}
 
 	if !enabled {
