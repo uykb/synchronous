@@ -35,6 +35,8 @@ func main() {
 		log.Printf("Warning: Redis initialization failed: %v", err)
 	} else if database.RDB == nil {
 		log.Println("Note: Redis not configured (REDIS_ADDR not set)")
+	} else {
+		log.Println("Redis connected successfully")
 	}
 
 	// Initialize SQLite
