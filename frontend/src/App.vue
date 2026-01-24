@@ -17,10 +17,62 @@ const logout = () => {
   auth.logout()
   router.push('/login')
 }
+
+// Create OKX theme overrides
+const themeOverrides = {
+  common: {
+    primaryColor: '#ffffff',
+    primaryColorHover: '#e0e0e0',
+    primaryColorPressed: '#cccccc',
+    successColor: '#00b426',
+    errorColor: '#f5465d',
+    warningColor: '#f7a800',
+    textColorBase: '#ffffff',
+    textColor1: '#ffffff',
+    textColor2: '#929292',
+    textColor3: '#5c5c5c',
+    bodyColor: '#000000',
+    cardColor: '#1a1a1a',
+    modalColor: '#1a1a1a',
+    popoverColor: '#242424',
+    borderColor: '#2d2d2d',
+    dividerColor: '#2d2d2d',
+    borderRadius: '8px',
+    borderRadiusSmall: '6px',
+  },
+  Button: {
+    colorPrimary: '#ffffff',
+    colorHoverPrimary: '#e0e0e0',
+    colorPressedPrimary: '#cccccc',
+    textColorPrimary: '#000000',
+    borderRadiusMedium: '8px',
+  },
+  Card: {
+    color: '#1a1a1a',
+    borderColor: '#2d2d2d',
+    borderRadius: '8px',
+  },
+  Input: {
+    color: '#1a1a1a',
+    borderHover: '#404040',
+    borderFocus: '#ffffff',
+  },
+  Tag: {
+    colorSuccess: 'rgba(0, 180, 38, 0.15)',
+    colorError: 'rgba(245, 70, 93, 0.15)',
+    colorWarning: 'rgba(247, 168, 0, 0.15)',
+  },
+  DataTable: {
+    thColor: '#1a1a1a',
+    tdColor: '#000000',
+    thColorHover: '#1a1a1a',
+    tdColorHover: '#141414',
+  }
+}
 </script>
 
 <template>
-  <n-config-provider :theme="darkTheme">
+  <n-config-provider :theme="darkTheme" :theme-overrides="themeOverrides">
     <n-message-provider>
       <n-notification-provider>
         <n-dialog-provider>
@@ -74,9 +126,7 @@ const logout = () => {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: #000000;
   border-bottom: 1px solid var(--border-color);
   height: 72px;
   display: flex;
@@ -141,20 +191,20 @@ const logout = () => {
 }
 
 .nav-link.router-link-active {
-  color: var(--primary-color);
-  background: rgba(56, 189, 248, 0.1);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .logout-btn {
   background: transparent;
   color: var(--danger);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--danger);
   padding: 0.4rem 1rem;
   font-size: 0.875rem;
 }
 
 .logout-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(245, 70, 93, 0.1);
   border-color: var(--danger);
   color: var(--danger);
 }
