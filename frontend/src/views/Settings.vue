@@ -30,6 +30,12 @@ interface SyncItem {
   enabled: boolean
 }
 
+interface ExchangeStatus {
+  enabled: boolean
+  api_key_hint: string
+  testnet?: boolean
+}
+
 const tradingStore = useTradingStore()
 const { success, error } = useNotify()
 const { copied, copyToClipboard } = useClipboard()
@@ -41,11 +47,15 @@ const showExchangeSelectModal = ref(false)
 const showAddModal = ref(false)
 const syncItems = ref<SyncItem[]>([])
 
-const config = ref({
-  binance: { api_key: '', api_secret: '', testnet: false },
-  okx: { api_key: '', api_secret: '', passphrase: '' },
-  bybit: { api_key: '', api_secret: '' },
-  sync: { enabled: true, check_interval_ms: 5000 }
+const exchangeStatus = ref<Record<string, ExchangeStatus>>({
+  binance: { enabled: false, api_key_hint: '' },
+  okx: { enabled: false, api_key_hint: '' },
+  bybit: { enabled: false, api_key_hint: '' }
+})
+
+const syncConfig = ref({
+  enabled: true,
+  check_interval_ms: 5000
 })
 
 const configuredExchanges = computed(() => {
@@ -66,13 +76,15 @@ async function fetchIp() {
 const fetchConfig = async () => {
   try {
     const res = await api.get('/config')
-    if (res.data.binance) config.value.binance.testnet = res.data.binance.testnet
-    if (res.data.sync) config.value.sync = res.data.sync
+    if (res.data.sync) syncConfig.value = res.data.sync
     
-    activeExchanges.value = []
-    if (res.data.binance?.enabled) activeExchanges.value.push('binance')
-    if (res.data.okx?.enabled) activeExchanges.value.push('okx')
-    if (res.data.bybit?.enabled) activeExchanges.value.push('bybit')
+    exchangeStatus.value.binance = res.data.binance || { enabled: false, api_key_hint: '' }
+    exchangeStatus.value.okx = res.data.okx || { enabled: false, api_key_hint: '' }
+    exchangeStatus.value.bybit = res.data.bybit || { enabled: false, api_key_hint: '' }
+
+    activeExchanges.value = Object.entries(exchangeStatus.value)
+      .filter(([_, status]) => status.enabled)
+      .map(([id]) => id)
   } catch (err) {
     error('获取配置失败')
   }
@@ -100,37 +112,21 @@ function copyIp() {
   })
 }
 
-const isExchangeConfigured = (id: string) => {
-  const c = config.value[id as keyof typeof config.value] as any
-  if (!c) return false
-  if (id === 'okx') return !!c.api_key && !!c.api_secret && !!c.passphrase
-  return !!c.api_key && !!c.api_secret
-}
-
-function removeExchange(id: string) {
-  activeExchanges.value = activeExchanges.value.filter(e => e !== id)
-}
-
-function addExchange(id: string) {
-  if (!activeExchanges.value.includes(id)) activeExchanges.value.push(id)
-  showExchangeSelectModal.value = false
-}
-
-const saveConfig = async () => {
-  try {
-    await api.put('/config', { ...config.value })
-    success('配置已保存！需要重启服务以应用新配置。')
-  } catch (err: any) {
-    error('保存失败: ' + err.message)
-  }
-}
-
 function restartBot() {
   if (tradingStore.isRunning) {
     tradingStore.toggleBot()
     setTimeout(() => tradingStore.toggleBot(), 1000)
   }
   success('机器人重启命令已发送。')
+}
+
+const saveSyncConfig = async () => {
+  try {
+    await api.put('/config', { sync: syncConfig.value })
+    success('同步设置已保存')
+  } catch (err: any) {
+    error('保存失败: ' + err.message)
+  }
 }
 
 const removeSyncItem = async (id: string) => {
@@ -207,9 +203,10 @@ const handleAddSyncRule = async (newRule: any) => {
             <ExchangeCard 
               v-if="getExchangeById(id)"
               :exchange="getExchangeById(id)!"
-              v-model="config[id as keyof typeof config]"
-              :is-configured="isExchangeConfigured(id)"
-              @remove="removeExchange(id)"
+              :api-key-hint="exchangeStatus[id]?.api_key_hint || ''"
+              :testnet="exchangeStatus[id]?.testnet"
+              @deleted="fetchConfig"
+              @updated="fetchConfig"
             />
           </n-grid-item>
           
@@ -226,9 +223,9 @@ const handleAddSyncRule = async (newRule: any) => {
             <template #icon><n-icon><RefreshOutline /></n-icon></template>
             重启机器人
           </n-button>
-          <n-button type="primary" @click="saveConfig">
+          <n-button type="primary" @click="saveSyncConfig">
             <template #icon><n-icon><SaveOutline /></n-icon></template>
-            保存更改
+            保存同步设置
           </n-button>
         </n-space>
       </section>
@@ -262,7 +259,7 @@ const handleAddSyncRule = async (newRule: any) => {
     <AddExchangeModal 
       v-model:show="showExchangeSelectModal" 
       :active-exchanges="activeExchanges"
-      @add="addExchange"
+      @added="fetchConfig"
     />
 
     <AddSyncRuleModal 

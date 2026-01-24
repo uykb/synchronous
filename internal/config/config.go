@@ -222,12 +222,70 @@ func (c *Config) GetSync() SyncConfig {
 	return c.Sync
 }
 
-func (c *Config) Update(binance BinanceConfig, okx OKXConfig, bybit BybitConfig, sync SyncConfig) {
+// UpdateAll updates all exchange and sync configurations (backward compatibility)
+func (c *Config) UpdateAll(binance BinanceConfig, okx OKXConfig, bybit BybitConfig, sync SyncConfig) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.Binance = binance
 	c.OKX = okx
 	c.Bybit = bybit
+	c.Sync = sync
+}
+
+// UpdateExchange updates a single exchange configuration
+// Only non-empty fields are updated to prevent overwriting existing keys
+func (c *Config) UpdateExchange(exchangeID string, apiKey, apiSecret, passphrase string, testnet bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	switch exchangeID {
+	case "binance":
+		if apiKey != "" {
+			c.Binance.APIKey = apiKey
+		}
+		if apiSecret != "" {
+			c.Binance.APISecret = apiSecret
+		}
+		c.Binance.Testnet = testnet
+	case "okx":
+		if apiKey != "" {
+			c.OKX.APIKey = apiKey
+		}
+		if apiSecret != "" {
+			c.OKX.APISecret = apiSecret
+		}
+		if passphrase != "" {
+			c.OKX.Passphrase = passphrase
+		}
+	case "bybit":
+		if apiKey != "" {
+			c.Bybit.APIKey = apiKey
+		}
+		if apiSecret != "" {
+			c.Bybit.APISecret = apiSecret
+		}
+	}
+}
+
+// DeleteExchange clears an exchange configuration
+func (c *Config) DeleteExchange(exchangeID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	switch exchangeID {
+	case "binance":
+		c.Binance = BinanceConfig{}
+	case "okx":
+		c.OKX = OKXConfig{}
+	case "bybit":
+		c.Bybit = BybitConfig{}
+	}
+}
+
+// UpdateSync updates sync configuration
+func (c *Config) UpdateSync(sync SyncConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.Sync = sync
 }
 

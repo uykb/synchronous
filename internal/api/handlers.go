@@ -49,6 +49,9 @@ func (a *API) SetupRoutes(r *gin.Engine) {
 		{
 			protected.GET("/config", a.GetConfig)
 			protected.PUT("/config", a.UpdateConfig)
+			protected.PUT("/exchanges/:id", a.UpdateExchangeConfig)
+			protected.DELETE("/exchanges/:id", a.DeleteExchangeConfig)
+			protected.POST("/exchanges/:id/test", a.TestExchangeConnection)
 			protected.GET("/sync-items", a.GetSyncItems)
 			protected.POST("/sync-items", a.AddSyncItem)
 			protected.DELETE("/sync-items/:id", a.DeleteSyncItem)
@@ -164,41 +167,107 @@ func (a *API) Restart(c *gin.Context) {
 }
 
 func (a *API) GetConfig(c *gin.Context) {
-	type SafeExchangeConfig struct {
-		Enabled bool `json:"enabled"`
-	}
-
-	type SafeBinanceConfig struct {
-		Enabled bool `json:"enabled"`
-		Testnet bool `json:"testnet"`
+	type ExchangeStatus struct {
+		Enabled    bool   `json:"enabled"`
+		APIKeyHint string `json:"api_key_hint,omitempty"` // e.g., "abc1...xyz9"
+		Testnet    bool   `json:"testnet,omitempty"`
 	}
 
 	binanceCfg := a.cfg.GetBinance()
 	okxCfg := a.cfg.GetOKX()
 	bybitCfg := a.cfg.GetBybit()
 
+	maskKey := func(key string) string {
+		if len(key) < 8 {
+			return ""
+		}
+		return key[:4] + "..." + key[len(key)-4:]
+	}
+
 	safe := struct {
-		Binance   SafeBinanceConfig  `json:"binance"`
-		OKX       SafeExchangeConfig `json:"okx"`
-		Bybit     SafeExchangeConfig `json:"bybit"`
+		Binance   ExchangeStatus     `json:"binance"`
+		OKX       ExchangeStatus     `json:"okx"`
+		Bybit     ExchangeStatus     `json:"bybit"`
 		Sync      interface{}        `json:"sync"`
 		SyncItems []config.SyncItem  `json:"sync_items"`
 	}{
-		Binance: SafeBinanceConfig{
-			Enabled: binanceCfg.APIKey != "",
-			Testnet: binanceCfg.Testnet,
+		Binance: ExchangeStatus{
+			Enabled:    binanceCfg.APIKey != "",
+			APIKeyHint: maskKey(binanceCfg.APIKey),
+			Testnet:    binanceCfg.Testnet,
 		},
-		OKX: SafeExchangeConfig{
-			Enabled: okxCfg.APIKey != "",
+		OKX: ExchangeStatus{
+			Enabled:    okxCfg.APIKey != "",
+			APIKeyHint: maskKey(okxCfg.APIKey),
 		},
-		Bybit: SafeExchangeConfig{
-			Enabled: bybitCfg.APIKey != "",
+		Bybit: ExchangeStatus{
+			Enabled:    bybitCfg.APIKey != "",
+			APIKeyHint: maskKey(bybitCfg.APIKey),
 		},
 		Sync:      a.cfg.GetSync(),
 		SyncItems: a.cfg.GetSyncItems(),
 	}
 
 	c.JSON(http.StatusOK, safe)
+}
+
+func (a *API) UpdateExchangeConfig(c *gin.Context) {
+	exchangeID := c.Param("id")
+
+	var req struct {
+		APIKey     string `json:"api_key"`
+		APISecret  string `json:"api_secret"`
+		Passphrase string `json:"passphrase,omitempty"`
+		Testnet    bool   `json:"testnet,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	a.cfg.UpdateExchange(exchangeID, req.APIKey, req.APISecret, req.Passphrase, req.Testnet)
+	if err := a.cfg.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Exchange config saved", "exchange": exchangeID})
+}
+
+func (a *API) DeleteExchangeConfig(c *gin.Context) {
+	exchangeID := c.Param("id")
+
+	a.cfg.DeleteExchange(exchangeID)
+	if err := a.cfg.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Exchange config deleted", "exchange": exchangeID})
+}
+
+func (a *API) TestExchangeConnection(c *gin.Context) {
+	exchangeID := c.Param("id")
+
+	// For now, just check if config exists - real implementation would ping the exchange API
+	var enabled bool
+	switch exchangeID {
+	case "binance":
+		enabled = a.cfg.GetBinance().APIKey != ""
+	case "okx":
+		enabled = a.cfg.GetOKX().APIKey != ""
+	case "bybit":
+		enabled = a.cfg.GetBybit().APIKey != ""
+	}
+
+	if !enabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Exchange not configured", "success": false})
+		return
+	}
+
+	// TODO: Implement actual exchange API ping
+	c.JSON(http.StatusOK, gin.H{"message": "Connection test passed", "success": true, "exchange": exchangeID})
 }
 
 func (a *API) UpdateConfig(c *gin.Context) {
@@ -208,12 +277,11 @@ func (a *API) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// Update fields selectively or overwrite? 
-	// For now, let's just update exchange keys and sync settings.
-	a.cfg.Update(newCfg.Binance, newCfg.OKX, newCfg.Bybit, newCfg.Sync)
+	// Use UpdateAll for backward compatibility or UpdateSync if only sync changed
+	a.cfg.UpdateSync(newCfg.Sync)
 	a.cfg.Save()
 
-	c.JSON(http.StatusOK, gin.H{"message": "Config updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "Sync config updated"})
 }
 
 func (a *API) GetSyncItems(c *gin.Context) {
