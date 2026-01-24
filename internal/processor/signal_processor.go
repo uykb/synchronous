@@ -38,6 +38,11 @@ func NewSignalProcessor(cfg *config.Config, okx, bybit, backpack, lighter models
 }
 
 func (p *SignalProcessor) Start() error {
+	// Skip if Redis is not available
+	if database.RDB == nil {
+		log.Println("Signal Processor skipped: Redis not configured")
+		return nil
+	}
 	log.Println("Signal Processor Started (Redis Stream Consumer)")
 	go p.processSignals()
 	return nil
