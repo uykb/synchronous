@@ -232,9 +232,9 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 	wg.Wait()
 
 	if okxErr == nil && bybitErr == nil && backpackErr == nil && lighterErr == nil {
-		// Success on both exchanges
+		// Success on all exchanges
 		database.RDB.XAck(ctx, "signals:trading", "trading-group", msg.ID)
-		log.Printf("Successfully processed signal %s on both exchanges", msg.ID)
+		log.Printf("Successfully processed signal %s on all exchanges", msg.ID)
 	} else {
 		// Failure logic: Retry/DLQ
 		p.handleFailure(ctx, msg)
