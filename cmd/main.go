@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/gin-gonic/gin"
@@ -141,19 +142,48 @@ func main() {
 }
 
 func CORSMiddleware() gin.HandlerFunc {
-	allowedOrigin := os.Getenv("CORS_ORIGIN")
-	if allowedOrigin == "" {
-		allowedOrigin = "http://localhost:5173" // Development default
+	corsOrigin := os.Getenv("CORS_ORIGIN")
+	if corsOrigin == "" {
+		corsOrigin = "http://localhost:5173" // Development default
+	}
+
+	// Prepare allowed origins
+	var allowedOrigins []string
+	isWildcard := corsOrigin == "*"
+	if !isWildcard {
+		parts := strings.Split(corsOrigin, ",")
+		for _, p := range parts {
+			allowedOrigins = append(allowedOrigins, strings.TrimSpace(p))
+		}
 	}
 
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
-		// Allow the configured origin or match it
-		if origin == allowedOrigin || allowedOrigin == "*" {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		// If no Origin header, allow the request to proceed (non-CORS or same-origin)
+		if origin == "" {
+			c.Next()
+			return
 		}
 
+		matched := false
+		if isWildcard {
+			matched = true
+		} else {
+			for _, o := range allowedOrigins {
+				if origin == o {
+					matched = true
+					break
+				}
+			}
+		}
+
+		if !matched {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
