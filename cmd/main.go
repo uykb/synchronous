@@ -30,9 +30,11 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Initialize Redis
+	// Initialize Redis (optional)
 	if err := database.InitRedis(); err != nil {
 		log.Printf("Warning: Redis initialization failed: %v", err)
+	} else if database.RDB == nil {
+		log.Println("Note: Redis not configured (REDIS_ADDR not set)")
 	}
 
 	// Initialize SQLite
@@ -54,6 +56,8 @@ func main() {
 	backpackRaw, err := exchange.NewBackpackExecutor(cfg)
 	if err != nil {
 		log.Printf("Warning: Backpack executor disabled: %v", err)
+	} else if backpackRaw == nil {
+		log.Println("Note: Backpack executor not configured (API keys can be set via admin panel)")
 	}
 	lighterRaw := exchange.NewLighterExecutor(cfg)
 

@@ -12,7 +12,8 @@ var RDB *redis.Client
 func InitRedis() error {
 	addr := os.Getenv("REDIS_ADDR")
 	if addr == "" {
-		addr = "localhost:6379"
+		// Redis not configured - this is optional
+		return nil
 	}
 
 	password := os.Getenv("REDIS_PASSWORD")
@@ -23,5 +24,10 @@ func InitRedis() error {
 		DB:       0,
 	})
 
-	return RDB.Ping(context.Background()).Err()
+	err := RDB.Ping(context.Background()).Err()
+	if err != nil {
+		RDB = nil // Clear client on failure
+		return err
+	}
+	return nil
 }

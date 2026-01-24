@@ -29,6 +29,11 @@ type BackpackExecutor struct {
 func NewBackpackExecutor(cfg *config.Config) (*BackpackExecutor, error) {
 	backpackCfg := cfg.GetBackpack()
 	
+	// If API secret is not configured, return nil (will be configured later via admin panel)
+	if backpackCfg.APISecret == "" {
+		return nil, nil
+	}
+	
 	// Decode the secret key (Base64 encoded Ed25519 private key)
 	privateKeyBytes, err := base64.StdEncoding.DecodeString(backpackCfg.APISecret)
 	if err != nil {
