@@ -40,10 +40,12 @@ func main() {
 		log.Printf("Warning: SQLite initialization failed: %v", err)
 	}
 
-	// 2. Ensure Consumer Group exists
-	err = database.RDB.XGroupCreateMkStream(context.Background(), "signals:trading", "trading-group", "$").Err()
-	if err != nil {
-		log.Printf("Note: Consumer group setup: %v (usually means it already exists)", err)
+	// 2. Ensure Consumer Group exists (only if Redis is available)
+	if database.RDB != nil {
+		err = database.RDB.XGroupCreateMkStream(context.Background(), "signals:trading", "trading-group", "$").Err()
+		if err != nil {
+			log.Printf("Note: Consumer group setup: %v (usually means it already exists)", err)
+		}
 	}
 
 	// 3. Initialize Executors and Processor
@@ -51,7 +53,7 @@ func main() {
 	bybitRaw := exchange.NewBybitExecutor(cfg)
 	backpackRaw, err := exchange.NewBackpackExecutor(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize Backpack executor: %v", err)
+		log.Printf("Warning: Backpack executor disabled: %v", err)
 	}
 	lighterRaw := exchange.NewLighterExecutor(cfg)
 
@@ -63,10 +65,6 @@ func main() {
 		Name:         "Bybit",
 		IsSuccessful: exchange.IsSuccessful,
 	})
-	backpackCB := gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:         "Backpack",
-		IsSuccessful: exchange.IsSuccessful,
-	})
 	lighterCB := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:         "Lighter",
 		IsSuccessful: exchange.IsSuccessful,
@@ -74,8 +72,17 @@ func main() {
 
 	okxExecutor := exchange.NewResilientExecutor(okxRaw, okxCB)
 	bybitExecutor := exchange.NewResilientExecutor(bybitRaw, bybitCB)
-	backpackExecutor := exchange.NewResilientExecutor(backpackRaw, backpackCB)
 	lighterExecutor := exchange.NewResilientExecutor(lighterRaw, lighterCB)
+
+	// Backpack executor is optional
+	var backpackExecutor models.ExchangeExecutor
+	if backpackRaw != nil {
+		backpackCB := gobreaker.NewCircuitBreaker(gobreaker.Settings{
+			Name:         "Backpack",
+			IsSuccessful: exchange.IsSuccessful,
+		})
+		backpackExecutor = exchange.NewResilientExecutor(backpackRaw, backpackCB)
+	}
 
 	proc := processor.NewSignalProcessor(cfg, okxExecutor, bybitExecutor, backpackExecutor, lighterExecutor)
 
@@ -91,7 +98,11 @@ func main() {
 	}
 
 	// 6. Start Reconciler
-	reconciler := processor.NewReconciler([]models.ExchangeExecutor{okxExecutor, bybitExecutor, backpackExecutor, lighterExecutor})
+	executors := []models.ExchangeExecutor{okxExecutor, bybitExecutor, lighterExecutor}
+	if backpackExecutor != nil {
+		executors = append(executors, backpackExecutor)
+	}
+	reconciler := processor.NewReconciler(executors)
 	ctx, cancel := context.WithCancel(context.Background())
 	go reconciler.Start(ctx)
 

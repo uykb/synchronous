@@ -178,6 +178,11 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 	go func() {
 		defer wg.Done()
 
+		// Skip if Backpack executor is not configured
+		if p.backpackExecutor == nil {
+			return
+		}
+
 		// Idempotency Check (Backpack)
 		duplicate, err := IsDuplicate(ctx, signal.SignalID, "backpack", originalQuantity, signal.Price)
 		if err == nil && duplicate {
@@ -274,6 +279,8 @@ func (p *SignalProcessor) Stop() {
 	close(p.stopChan)
 	p.okxExecutor.Close()
 	p.bybitExecutor.Close()
-	p.backpackExecutor.Close()
+	if p.backpackExecutor != nil {
+		p.backpackExecutor.Close()
+	}
 	p.lighterExecutor.Close()
 }
