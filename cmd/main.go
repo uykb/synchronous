@@ -49,6 +49,11 @@ func main() {
 	// 3. Initialize Executors and Processor
 	okxRaw := exchange.NewOKXExecutor(cfg)
 	bybitRaw := exchange.NewBybitExecutor(cfg)
+	backpackRaw, err := exchange.NewBackpackExecutor(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize Backpack executor: %v", err)
+	}
+	lighterRaw := exchange.NewLighterExecutor(cfg)
 
 	okxCB := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:         "OKX",
@@ -58,11 +63,21 @@ func main() {
 		Name:         "Bybit",
 		IsSuccessful: exchange.IsSuccessful,
 	})
+	backpackCB := gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:         "Backpack",
+		IsSuccessful: exchange.IsSuccessful,
+	})
+	lighterCB := gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:         "Lighter",
+		IsSuccessful: exchange.IsSuccessful,
+	})
 
 	okxExecutor := exchange.NewResilientExecutor(okxRaw, okxCB)
 	bybitExecutor := exchange.NewResilientExecutor(bybitRaw, bybitCB)
+	backpackExecutor := exchange.NewResilientExecutor(backpackRaw, backpackCB)
+	lighterExecutor := exchange.NewResilientExecutor(lighterRaw, lighterCB)
 
-	proc := processor.NewSignalProcessor(cfg, okxExecutor, bybitExecutor)
+	proc := processor.NewSignalProcessor(cfg, okxExecutor, bybitExecutor, backpackExecutor, lighterExecutor)
 
 	// 4. Start Binance Listener (Produces to Redis)
 	binanceListener := exchange.NewBinanceListener(cfg)
@@ -76,7 +91,7 @@ func main() {
 	}
 
 	// 6. Start Reconciler
-	reconciler := processor.NewReconciler([]models.ExchangeExecutor{okxExecutor, bybitExecutor})
+	reconciler := processor.NewReconciler([]models.ExchangeExecutor{okxExecutor, bybitExecutor, backpackExecutor, lighterExecutor})
 	ctx, cancel := context.WithCancel(context.Background())
 	go reconciler.Start(ctx)
 

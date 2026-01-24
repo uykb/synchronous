@@ -16,20 +16,24 @@ import (
 )
 
 type SignalProcessor struct {
-	okxExecutor   models.ExchangeExecutor
-	bybitExecutor models.ExchangeExecutor
-	riskManager   *risk.Manager
-	config        *config.Config
-	stopChan      chan struct{}
+	okxExecutor      models.ExchangeExecutor
+	bybitExecutor    models.ExchangeExecutor
+	backpackExecutor models.ExchangeExecutor
+	lighterExecutor  models.ExchangeExecutor
+	riskManager      *risk.Manager
+	config           *config.Config
+	stopChan         chan struct{}
 }
 
-func NewSignalProcessor(cfg *config.Config, okx models.ExchangeExecutor, bybit models.ExchangeExecutor) *SignalProcessor {
+func NewSignalProcessor(cfg *config.Config, okx, bybit, backpack, lighter models.ExchangeExecutor) *SignalProcessor {
 	return &SignalProcessor{
-		config:        cfg,
-		okxExecutor:   okx,
-		bybitExecutor: bybit,
-		riskManager:   risk.NewManager(cfg),
-		stopChan:      make(chan struct{}),
+		config:           cfg,
+		okxExecutor:      okx,
+		bybitExecutor:    bybit,
+		backpackExecutor: backpack,
+		lighterExecutor:  lighter,
+		riskManager:      risk.NewManager(cfg),
+		stopChan:         make(chan struct{}),
 	}
 }
 
@@ -114,8 +118,8 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 
 	// 3. Execute Orders in Parallel
 	var wg sync.WaitGroup
-	var okxErr, bybitErr error
-	wg.Add(2)
+	var okxErr, bybitErr, backpackErr, lighterErr error
+	wg.Add(4)
 
 	go func() {
 		defer wg.Done()
@@ -171,9 +175,63 @@ func (p *SignalProcessor) handleMessage(ctx context.Context, msg redis.XMessage)
 		}
 	}()
 
+	go func() {
+		defer wg.Done()
+
+		// Idempotency Check (Backpack)
+		duplicate, err := IsDuplicate(ctx, signal.SignalID, "backpack", originalQuantity, signal.Price)
+		if err == nil && duplicate {
+			log.Printf("Backpack Duplicate Signal Detected, skipping: %s", signal.SignalID)
+			return
+		}
+
+		res, err := p.backpackExecutor.PlaceOrder(&signal)
+		backpackErr = err
+		if backpackErr == nil {
+			MarkProcessed(ctx, signal.SignalID, "backpack", originalQuantity, signal.Price)
+		}
+
+		if res != nil {
+			database.SaveOrderResult(res)
+		}
+		if backpackErr != nil {
+			log.Printf("Backpack Execution Error: %v", backpackErr)
+			metrics.OrdersCounter.WithLabelValues("backpack", "failed").Inc()
+		} else {
+			metrics.OrdersCounter.WithLabelValues("backpack", "success").Inc()
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		// Idempotency Check (Lighter)
+		duplicate, err := IsDuplicate(ctx, signal.SignalID, "lighter", originalQuantity, signal.Price)
+		if err == nil && duplicate {
+			log.Printf("Lighter Duplicate Signal Detected, skipping: %s", signal.SignalID)
+			return
+		}
+
+		res, err := p.lighterExecutor.PlaceOrder(&signal)
+		lighterErr = err
+		if lighterErr == nil {
+			MarkProcessed(ctx, signal.SignalID, "lighter", originalQuantity, signal.Price)
+		}
+
+		if res != nil {
+			database.SaveOrderResult(res)
+		}
+		if lighterErr != nil {
+			log.Printf("Lighter Execution Error: %v", lighterErr)
+			metrics.OrdersCounter.WithLabelValues("lighter", "failed").Inc()
+		} else {
+			metrics.OrdersCounter.WithLabelValues("lighter", "success").Inc()
+		}
+	}()
+
 	wg.Wait()
 
-	if okxErr == nil && bybitErr == nil {
+	if okxErr == nil && bybitErr == nil && backpackErr == nil && lighterErr == nil {
 		// Success on both exchanges
 		database.RDB.XAck(ctx, "signals:trading", "trading-group", msg.ID)
 		log.Printf("Successfully processed signal %s on both exchanges", msg.ID)
@@ -216,4 +274,6 @@ func (p *SignalProcessor) Stop() {
 	close(p.stopChan)
 	p.okxExecutor.Close()
 	p.bybitExecutor.Close()
+	p.backpackExecutor.Close()
+	p.lighterExecutor.Close()
 }
