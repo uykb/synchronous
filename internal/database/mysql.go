@@ -26,8 +26,8 @@ type Order struct {
 	ID           uint      `gorm:"primaryKey"`
 	Exchange     string    `gorm:"index"`
 	Symbol       string    `gorm:"index"`
-	OrderID      string    `gorm:"uniqueIndex"`
-	ClientOrderID string
+	OrderID       string `gorm:"size:128;uniqueIndex"`
+	ClientOrderID string `gorm:"size:128"`
 	Side         string
 	Type         string
 	Price        float64
