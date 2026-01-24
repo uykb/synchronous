@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { useAuthStore } from './stores/auth'
 import { useRouter } from 'vue-router'
+import { 
+  NConfigProvider, 
+  NMessageProvider, 
+  NNotificationProvider, 
+  NDialogProvider, 
+  NLoadingBarProvider, 
+  darkTheme 
+} from 'naive-ui'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -12,37 +20,47 @@ const logout = () => {
 </script>
 
 <template>
-  <div class="app-layout">
-    <nav class="nav-bar">
-      <div class="nav-container">
-        <div class="nav-brand">
-          <div class="brand-logo">
-            <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg" alt="BTC" />
-          </div>
-          <span>CryptoSyncBot</span>
-        </div>
-        <div class="nav-links" v-if="auth.isAuthenticated">
-          <router-link to="/" class="nav-link">
-            <span class="link-icon">📊</span> 控制面板
-          </router-link>
-          <router-link to="/settings" class="nav-link">
-            <span class="link-icon">⚙️</span> 设置
-          </router-link>
-          <button @click="logout" class="logout-btn">
-            退出登录
-          </button>
-        </div>
-      </div>
-    </nav>
-    
-    <main class="content-wrapper">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </main>
-  </div>
+  <n-config-provider :theme="darkTheme">
+    <n-message-provider>
+      <n-notification-provider>
+        <n-dialog-provider>
+          <n-loading-bar-provider>
+            <div class="app-layout">
+              <nav class="nav-bar">
+                <div class="nav-container">
+                  <div class="nav-brand">
+                    <div class="brand-logo">
+                      <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg" alt="BTC" />
+                    </div>
+                    <span>CryptoSyncBot</span>
+                  </div>
+                  <div class="nav-links" v-if="auth.isAuthenticated">
+                    <router-link to="/" class="nav-link">
+                      <span class="link-icon">📊</span> 控制面板
+                    </router-link>
+                    <router-link to="/settings" class="nav-link">
+                      <span class="link-icon">⚙️</span> 设置
+                    </router-link>
+                    <button @click="logout" class="logout-btn">
+                      退出登录
+                    </button>
+                  </div>
+                </div>
+              </nav>
+              
+              <main class="content-wrapper">
+                <router-view v-slot="{ Component }">
+                  <transition name="fade" mode="out-in">
+                    <component :is="Component" />
+                  </transition>
+                </router-view>
+              </main>
+            </div>
+          </n-loading-bar-provider>
+        </n-dialog-provider>
+      </n-notification-provider>
+    </n-message-provider>
+  </n-config-provider>
 </template>
 
 <style>

@@ -9,9 +9,11 @@
     "preview": "bun run vite preview"
   },
   "dependencies": {
+    "@vicons/ionicons5": "^0.13.0",
     "@vueuse/core": "^14.1.0",
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
+    "naive-ui": "^2.43.2",
     "pinia": "^3.0.4",
     "qrcode": "^1.5.4",
     "uuid": "^13.0.0",

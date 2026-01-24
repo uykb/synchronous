@@ -1,7 +1,44 @@
 <script setup lang="ts">
+import { ref, h } from 'vue'
+import { 
+  NTag, NDataTable, DataTableColumns, NCard, NStatistic, 
+  NIcon, NButton, NText, NSkeleton, NEmpty, NGrid, NGi 
+} from 'naive-ui'
+import { 
+  RadioOutline, TimeOutline, StatsChartOutline, 
+  PlayOutline, StopOutline 
+} from '@vicons/ionicons5'
 import { useTradingStore } from '../stores/trading'
 
 const store = useTradingStore()
+const loading = ref(false)
+
+const columns: DataTableColumns = [
+  { 
+    title: '时间戳', 
+    key: 'time',
+    render: (row) => h('span', { class: 'timestamp' }, row.time as string)
+  },
+  { 
+    title: '交易对', 
+    key: 'symbol',
+    render: (row) => h(NTag, { type: 'info', size: 'small' }, { default: () => row.symbol })
+  },
+  { 
+    title: '操作', 
+    key: 'side',
+    render: (row) => h(NTag, { 
+      type: row.side === 'BUY' ? 'success' : 'error',
+      size: 'small' 
+    }, { default: () => row.side === 'BUY' ? '买入' : '卖出' })
+  },
+  { 
+    title: '价格', 
+    key: 'price', 
+    align: 'right',
+    render: (row) => h('span', { class: 'price' }, row.price as string)
+  }
+]
 </script>
 
 <template>
@@ -12,88 +49,91 @@ const store = useTradingStore()
         <p class="subtitle">实时监控您的自动化交易信号</p>
       </div>
       <div class="header-actions">
-        <button 
-          @click="store.toggleBot" 
-          :class="['bot-toggle-btn', { 'is-running': store.isRunning }]"
+        <n-button 
+          :type="store.isRunning ? 'error' : 'success'"
+          @click="store.toggleBot"
+          size="large"
         >
-          <span class="btn-icon">{{ store.isRunning ? '⏹' : '▶' }}</span>
+          <template #icon>
+            <n-icon>
+              <StopOutline v-if="store.isRunning" />
+              <PlayOutline v-else />
+            </n-icon>
+          </template>
           {{ store.isRunning ? '停止机器人' : '启动机器人' }}
-        </button>
+        </n-button>
       </div>
     </header>
     
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-icon status">📡</span>
-          <h3>机器人状态</h3>
-        </div>
-        <div class="stat-value">
-          <span :class="['status-badge', store.isRunning ? 'status-active' : 'status-inactive']">
-            {{ store.isRunning ? '运行中' : '已离线' }}
-          </span>
-        </div>
-        <div class="stat-footer">
-          {{ store.isRunning ? '机器人正在监听信号' : '系统当前处于空闲状态' }}
-        </div>
-      </div>
+    <n-grid :x-gap="24" :y-gap="24" cols="1 s:2 m:3" responsive="screen" class="stats-grid">
+      <n-gi>
+        <n-card hoverable>
+          <n-statistic label="机器人状态">
+            <template #prefix>
+              <n-icon><RadioOutline /></n-icon>
+            </template>
+            <n-tag :type="store.isRunning ? 'success' : 'error'">
+              {{ store.isRunning ? '运行中' : '已离线' }}
+            </n-tag>
+          </n-statistic>
+          <template #footer>
+            <n-text depth="3">
+              {{ store.isRunning ? '机器人正在监听信号' : '系统当前处于空闲状态' }}
+            </n-text>
+          </template>
+        </n-card>
+      </n-gi>
       
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-icon time">🕒</span>
-          <h3>最后更新</h3>
-        </div>
-        <div class="stat-value">{{ store.lastUpdate || '从未' }}</div>
-        <div class="stat-footer">最新信号时间戳</div>
-      </div>
+      <n-gi>
+        <n-card hoverable>
+          <n-statistic label="最后更新">
+            <template #prefix>
+              <n-icon><TimeOutline /></n-icon>
+            </template>
+            <span class="stat-value">{{ store.lastUpdate || '从未' }}</span>
+          </n-statistic>
+          <template #footer>
+            <n-text depth="3">最新信号时间戳</n-text>
+          </template>
+        </n-card>
+      </n-gi>
       
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-icon signals">📊</span>
-          <h3>今日信号</h3>
-        </div>
-        <div class="stat-value">{{ store.signals.length }}</div>
-        <div class="stat-footer">累计接收信号总数</div>
-      </div>
-    </div>
+      <n-gi>
+        <n-card hoverable>
+          <n-statistic label="今日信号">
+            <template #prefix>
+              <n-icon><StatsChartOutline /></n-icon>
+            </template>
+            <span class="stat-value">{{ store.signals.length }}</span>
+          </n-statistic>
+          <template #footer>
+            <n-text depth="3">累计接收信号总数</n-text>
+          </template>
+        </n-card>
+      </n-gi>
+    </n-grid>
 
-    <div class="signals-section card">
-      <div class="section-header">
-        <h2>最近活动</h2>
-        <div class="badge">共 {{ store.signals.length }} 条</div>
-      </div>
-      
+    <n-card title="最近活动" class="signals-section" :segmented="{ content: true }">
+      <template #header-extra>
+        <n-tag type="primary" size="small" round>
+          共 {{ store.signals.length }} 条
+        </n-tag>
+      </template>
+
       <div class="table-container">
-        <table v-if="store.signals.length">
-          <thead>
-            <tr>
-              <th>时间戳</th>
-              <th>交易对</th>
-              <th>操作</th>
-              <th class="text-right">价格</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(sig, index) in store.signals" :key="index">
-              <td class="timestamp">{{ sig.time }}</td>
-              <td class="symbol">
-                <span class="symbol-tag">{{ sig.symbol }}</span>
-              </td>
-              <td>
-                <span :class="['side-badge', sig.side === 'BUY' ? 'side-buy' : 'side-sell']">
-                  {{ sig.side === 'BUY' ? '买入' : '卖出' }}
-                </span>
-              </td>
-              <td class="price text-right">{{ sig.price }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-else class="empty-state">
-          <div class="empty-icon">📭</div>
-          <p>等待信号中...</p>
-        </div>
+        <n-skeleton v-if="loading" text :repeat="5" />
+        <template v-else>
+          <n-data-table
+            v-if="store.signals.length"
+            :columns="columns"
+            :data="store.signals"
+            :bordered="false"
+            :single-line="false"
+          />
+          <n-empty v-else description="等待信号中..." />
+        </template>
       </div>
-    </div>
+    </n-card>
   </div>
 </template>
 
@@ -121,174 +161,18 @@ const store = useTradingStore()
   margin-top: 0.25rem;
 }
 
-.bot-toggle-btn {
-  background: var(--success);
-  color: #fff;
-  gap: 0.5rem;
-}
-
-.bot-toggle-btn.is-running {
-  background: var(--danger);
-}
-
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
   margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: var(--surface-color);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  transition: var(--transition);
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(56, 189, 248, 0.2);
-}
-
-.stat-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.stat-header h3 {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.stat-icon {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  font-size: 1rem;
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .stat-value {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--text-primary);
-}
-
-.stat-footer {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.status-badge {
-  display: inline-flex;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.status-active {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
-}
-
-.status-inactive {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger);
-}
-
-.signals-section {
-  padding: 0;
-  overflow: hidden;
-}
-
-.section-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.badge {
-  background: var(--surface-hover);
-  padding: 0.25rem 0.625rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--primary-color);
-}
-
-.table-container {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th {
-  background: rgba(255, 255, 255, 0.02);
-  padding: 1rem 1.5rem;
-  text-align: left;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-color);
-}
-
-td {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 0.9375rem;
-}
-
-tr:hover td {
-  background: rgba(255, 255, 255, 0.01);
 }
 
 .timestamp {
-  color: var(--text-secondary);
   font-family: monospace;
-}
-
-.symbol-tag {
-  background: rgba(56, 189, 248, 0.1);
-  color: var(--primary-color);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.side-badge {
-  display: inline-flex;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.side-buy {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
-}
-
-.side-sell {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger);
+  color: var(--text-secondary);
 }
 
 .price {
@@ -296,20 +180,8 @@ tr:hover td {
   font-family: monospace;
 }
 
-.text-right {
-  text-align: right;
-}
-
-.empty-state {
-  padding: 4rem 2rem;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
+.table-container {
+  min-height: 200px;
 }
 
 @media (max-width: 640px) {
@@ -317,9 +189,11 @@ tr:hover td {
     flex-direction: column;
     align-items: flex-start;
   }
-  .bot-toggle-btn {
+  .header-actions {
+    width: 100%;
+  }
+  .header-actions :deep(.n-button) {
     width: 100%;
   }
 }
 </style>
-

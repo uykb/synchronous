@@ -1,8 +1,25 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { 
+  NSpace, NGrid, NGridItem, NButton, NIcon, NText, 
+  NSkeleton, NCard, NInput, NInputGroup
+} from 'naive-ui'
+import { 
+  CopyOutline, CheckmarkOutline, KeyOutline, 
+  SyncOutline, AddOutline, RefreshOutline, SaveOutline
+} from '@vicons/ionicons5'
+import axios from 'axios'
 import { useTradingStore } from '../stores/trading'
 import api from '../api/client'
-import axios from 'axios'
+import { useNotify } from '../composables/useNotify'
+import { useClipboard } from '../utils/clipboard'
+import { EXCHANGES, getExchangeById } from '../utils/exchange'
+
+// Components
+import ExchangeCard from '../components/settings/ExchangeCard.vue'
+import SyncRuleCard from '../components/settings/SyncRuleCard.vue'
+import AddExchangeModal from '../components/settings/AddExchangeModal.vue'
+import AddSyncRuleModal from '../components/settings/AddSyncRuleModal.vue'
 
 interface SyncItem {
   id: string
@@ -14,17 +31,34 @@ interface SyncItem {
 }
 
 const tradingStore = useTradingStore()
+const { success, error } = useNotify()
+const { copied, copyToClipboard } = useClipboard()
 
 const serverIp = ref('正在获取...')
-const copied = ref(false)
 const loading = ref(true)
+const activeExchanges = ref<string[]>([])
+const showExchangeSelectModal = ref(false)
+const showAddModal = ref(false)
+const syncItems = ref<SyncItem[]>([])
+
+const config = ref({
+  binance: { api_key: '', api_secret: '', testnet: false },
+  okx: { api_key: '', api_secret: '', passphrase: '' },
+  bybit: { api_key: '', api_secret: '' },
+  sync: { enabled: true, check_interval_ms: 5000 }
+})
+
+const configuredExchanges = computed(() => {
+  return activeExchanges.value
+    .map(id => getExchangeById(id))
+    .filter((ex): ex is NonNullable<typeof ex> => !!ex)
+})
 
 async function fetchIp() {
   try {
     const response = await axios.get('/api/system/ip')
     serverIp.value = response.data.ip
-  } catch (error) {
-    console.error('Failed to fetch IP:', error)
+  } catch (err) {
     serverIp.value = '获取失败'
   }
 }
@@ -32,22 +66,15 @@ async function fetchIp() {
 const fetchConfig = async () => {
   try {
     const res = await api.get('/config')
-    // Merge with local state (API returns partial data for security)
-    if (res.data.binance) {
-      config.value.binance.testnet = res.data.binance.testnet
-      // Note: API keys are not returned for security, only "enabled" status
-    }
-    if (res.data.sync) {
-      config.value.sync = res.data.sync
-    }
+    if (res.data.binance) config.value.binance.testnet = res.data.binance.testnet
+    if (res.data.sync) config.value.sync = res.data.sync
     
-    // Set activeExchanges based on what's enabled
     activeExchanges.value = []
     if (res.data.binance?.enabled) activeExchanges.value.push('binance')
     if (res.data.okx?.enabled) activeExchanges.value.push('okx')
     if (res.data.bybit?.enabled) activeExchanges.value.push('bybit')
   } catch (err) {
-    console.error('Failed to fetch config:', err)
+    error('获取配置失败')
   }
 }
 
@@ -56,1066 +83,238 @@ const fetchSyncItems = async () => {
     const res = await api.get('/sync-items')
     syncItems.value = res.data || []
   } catch (err) {
-    console.error('Failed to fetch sync items:', err)
+    error('获取同步规则失败')
   }
 }
 
 onMounted(async () => {
   loading.value = true
-  try {
-    await fetchIp()
-    await fetchConfig()
-    await fetchSyncItems()
-  } finally {
-    loading.value = false
-  }
+  await Promise.all([fetchIp(), fetchConfig(), fetchSyncItems()])
+  loading.value = false
 })
 
 function copyIp() {
-  const text = serverIp.value
-  if (text === '正在获取...' || text === '获取失败') return
-
-  // Try modern Clipboard API
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).then(() => {
-      copied.value = true
-      setTimeout(() => { copied.value = false }, 2000)
-    }).catch(err => {
-      console.error('Clipboard API failed, falling back:', err)
-      fallbackCopyTextToClipboard(text)
-    })
-  } else {
-    fallbackCopyTextToClipboard(text)
-  }
+  if (serverIp.value === '正在获取...' || serverIp.value === '获取失败') return
+  copyToClipboard(serverIp.value).then(res => {
+    if (res) success('IP 已复制到剪贴板')
+  })
 }
 
-function fallbackCopyTextToClipboard(text: string) {
-  const textArea = document.createElement("textarea")
-  textArea.value = text
-  textArea.style.position = "fixed"
-  textArea.style.left = "-9999px"
-  textArea.style.top = "0"
-  document.body.appendChild(textArea)
-  textArea.focus()
-  textArea.select()
-
-  try {
-    const successful = document.execCommand('copy')
-    if (successful) {
-      copied.value = true
-      setTimeout(() => { copied.value = false }, 2000)
-    }
-  } catch (err) {
-    console.error('Fallback copy failed:', err)
-  }
-
-  document.body.removeChild(textArea)
+const isExchangeConfigured = (id: string) => {
+  const c = config.value[id as keyof typeof config.value] as any
+  if (!c) return false
+  if (id === 'okx') return !!c.api_key && !!c.api_secret && !!c.passphrase
+  return !!c.api_key && !!c.api_secret
 }
 
-const config = ref({
-  binance: {
-    api_key: '',
-    api_secret: '',
-    testnet: false
-  },
-  okx: {
-    api_key: '',
-    api_secret: '',
-    passphrase: ''
-  },
-  bybit: {
-    api_key: '',
-    api_secret: ''
-  },
-  sync: {
-    enabled: true,
-    check_interval_ms: 5000
-  }
-})
-
-const configuredExchanges = computed(() => {
-  const exchanges = []
-  if (config.value.binance?.api_key || activeExchanges.value.includes('binance')) {
-    exchanges.push({ id: 'binance', name: 'Binance', icon: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040' })
-  }
-  if (config.value.okx?.api_key || activeExchanges.value.includes('okx')) {
-    exchanges.push({ id: 'okx', name: 'OKX', icon: 'https://logo.svgcdn.com/token-branded/okx.svg' })
-  }
-  if (config.value.bybit?.api_key || activeExchanges.value.includes('bybit')) {
-    exchanges.push({ id: 'bybit', name: 'Bybit', icon: 'https://assets.staticimg.com/cms/media/1FwCPtozpXRpEYCGZojJfRF7O6aw9Vxi0I05yOvmR.png' })
-  }
-  return exchanges
-})
-
-const availableSources = computed(() => configuredExchanges.value)
-const filteredTargets = computed(() => {
-  return configuredExchanges.value.filter(ex => ex.id !== newItem.value.source)
-})
-
-const isExchangeConfigured = (exchangeId: string) => {
-  if (exchangeId === 'binance') return (!!config.value.binance.api_key && !!config.value.binance.api_secret) || activeExchanges.value.includes('binance')
-  if (exchangeId === 'okx') return (!!config.value.okx.api_key && !!config.value.okx.api_secret && !!config.value.okx.passphrase) || activeExchanges.value.includes('okx')
-  if (exchangeId === 'bybit') return (!!config.value.bybit.api_key && !!config.value.bybit.api_secret) || activeExchanges.value.includes('bybit')
-  return false
+function removeExchange(id: string) {
+  activeExchanges.value = activeExchanges.value.filter(e => e !== id)
 }
 
-const activeExchanges = ref<string[]>([])
-const showExchangeSelectModal = ref(false)
-
-function removeExchange(exchange: string) {
-  activeExchanges.value = activeExchanges.value.filter(e => e !== exchange)
-}
-
-function addExchange(exchange: string) {
-  if (!activeExchanges.value.includes(exchange)) {
-    activeExchanges.value.push(exchange)
-  }
+function addExchange(id: string) {
+  if (!activeExchanges.value.includes(id)) activeExchanges.value.push(id)
   showExchangeSelectModal.value = false
-}
-
-const syncItems = ref<SyncItem[]>([])
-
-const showAddModal = ref(false)
-const newItem = ref({
-  name: '',
-  symbol: '',
-  source: '',
-  targets: [] as string[],
-  enabled: true
-})
-
-// Initialize source when modal opens or exchanges change
-watch(showAddModal, (val) => {
-  if (val && !newItem.value.source && availableSources.value.length > 0) {
-    newItem.value.source = availableSources.value[0].id
-  }
-})
-
-function toggleTarget(id: string) {
-  const index = newItem.value.targets.indexOf(id)
-  if (index === -1) {
-    newItem.value.targets.push(id)
-  } else {
-    newItem.value.targets.splice(index, 1)
-  }
 }
 
 const saveConfig = async () => {
   try {
-    await api.put('/config', {
-      binance: config.value.binance,
-      okx: config.value.okx,
-      bybit: config.value.bybit,
-      sync: config.value.sync
-    })
-    alert('配置已保存！需要重启服务以应用新配置。')
-  } catch (err) {
-    console.error('Failed to save config:', err)
-    alert('保存失败: ' + (err as Error).message)
+    await api.put('/config', { ...config.value })
+    success('配置已保存！需要重启服务以应用新配置。')
+  } catch (err: any) {
+    error('保存失败: ' + err.message)
   }
 }
 
 function restartBot() {
-  console.log('Restarting bot...')
   if (tradingStore.isRunning) {
-    tradingStore.toggleBot() // stop
-    setTimeout(() => tradingStore.toggleBot(), 1000) // start
+    tradingStore.toggleBot()
+    setTimeout(() => tradingStore.toggleBot(), 1000)
   }
-  alert('机器人重启命令已发送。')
+  success('机器人重启命令已发送。')
 }
 
 const removeSyncItem = async (id: string) => {
   try {
     await api.delete(`/sync-items/${id}`)
     syncItems.value = syncItems.value.filter(item => item.id !== id)
-  } catch (err) {
-    console.error('Failed to delete sync item:', err)
-    alert('删除失败: ' + (err as Error).message)
+    success('同步规则已删除')
+  } catch (err: any) {
+    error('删除失败: ' + err.message)
   }
 }
 
-const addSyncItem = async () => {
-  if (!newItem.value.name || !newItem.value.symbol || !newItem.value.source || newItem.value.targets.length === 0) {
-    alert('请填写完整的规则信息')
-    return
-  }
-  
-  const item = {
-    id: Date.now().toString(),
-    name: newItem.value.name,
-    symbol: newItem.value.symbol,
-    source: newItem.value.source,
-    targets: [...newItem.value.targets],
-    enabled: true
-  }
-  
+const handleAddSyncRule = async (newRule: any) => {
+  const item = { ...newRule, id: Date.now().toString() }
   try {
     const res = await api.post('/sync-items', item)
     syncItems.value.push(res.data)
     showAddModal.value = false
-    // Reset form
-    newItem.value = { name: '', symbol: '', source: '', targets: [], enabled: true }
-  } catch (err) {
-    console.error('Failed to add sync item:', err)
-    alert('添加失败: ' + (err as Error).message)
+    success('同步规则已添加')
+  } catch (err: any) {
+    error('添加失败: ' + err.message)
   }
 }
 </script>
 
 <template>
   <div class="settings">
-    <header class="settings-header">
-      <div class="header-content">
-        <div class="header-title">
-          <h1>设置</h1>
-          <p class="subtitle">配置您的交易所凭据和同步规则</p>
+    <header class="mb-8">
+      <n-space justify="space-between" align="end">
+        <div>
+          <n-text tag="h1" class="text-3xl font-bold m-0">设置</n-text>
+          <n-text depth="3">配置您的交易所凭据和同步规则</n-text>
         </div>
-        <div class="server-ip-card">
-          <div class="ip-info">
-            <span class="ip-label">服务器 IP (用于添加白名单)</span>
-            <div class="ip-value-wrapper">
-              <code class="ip-value">{{ serverIp }}</code>
-              <button class="copy-ip-btn" @click="copyIp" :class="{ 'is-copied': copied }" :disabled="serverIp === '正在获取...' || serverIp === '获取失败'">
-                <span v-if="!copied" class="btn-icon">📋</span>
-                <span v-else class="btn-icon">✅</span>
-                {{ copied ? '已复制' : '复制' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+        
+        <n-card size="small" class="ip-card">
+          <n-space vertical :size="4">
+            <n-text depth="3" class="text-xs font-bold uppercase tracking-wider">
+              服务器 IP (用于添加白名单)
+            </n-text>
+            <n-input-group>
+              <n-input :value="serverIp" readonly placeholder="获取中..." style="width: 160px" />
+              <n-button @click="copyIp" :type="copied ? 'success' : 'default'">
+                <template #icon>
+                  <n-icon>
+                    <CheckmarkOutline v-if="copied" />
+                    <CopyOutline v-else />
+                  </n-icon>
+                </template>
+              </n-button>
+            </n-input-group>
+          </n-space>
+        </n-card>
+      </n-space>
     </header>
-    
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>正在加载配置...</p>
-    </div>
-    <div v-else class="settings-layout">
-      <section class="settings-section">
-        <div class="section-title">
-          <span class="icon">🔑</span>
-          <h2>交易所配置</h2>
-        </div>
-        
-        <div class="settings-grid">
-          <div v-if="activeExchanges.includes('binance')" class="exchange-card">
-            <div class="exchange-header">
-              <div class="exchange-info">
-                <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040" alt="Binance" class="exchange-logo" />
-                <h3>Binance</h3>
-                <span :class="['status-badge', isExchangeConfigured('binance') ? 'configured' : 'incomplete']">
-                  {{ isExchangeConfigured('binance') ? '✅ 已配置' : '⚠️ 未完成' }}
-                </span>
-              </div>
-              <button class="remove-exchange-btn" @click="removeExchange('binance')" title="移除交易所">×</button>
-            </div>
-            <div class="exchange-body">
-              <div class="form-group">
-                <label>API Key</label>
-                <input type="password" v-model="config.binance.api_key" placeholder="请输入 API Key" />
-              </div>
-              <div class="form-group">
-                <label>Secret Key</label>
-                <input type="password" v-model="config.binance.api_secret" placeholder="请输入 Secret Key" />
-              </div>
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="config.binance.testnet" />
-                <span class="checkbox-text">启用测试网模式</span>
-              </label>
-            </div>
-          </div>
 
-          <div v-if="activeExchanges.includes('okx')" class="exchange-card">
-            <div class="exchange-header">
-              <div class="exchange-info">
-                <img src="https://logo.svgcdn.com/token-branded/okx.svg" alt="OKX" class="exchange-logo" />
-                <h3>OKX</h3>
-                <span :class="['status-badge', isExchangeConfigured('okx') ? 'configured' : 'incomplete']">
-                  {{ isExchangeConfigured('okx') ? '✅ 已配置' : '⚠️ 未完成' }}
-                </span>
-              </div>
-              <button class="remove-exchange-btn" @click="removeExchange('okx')" title="移除交易所">×</button>
-            </div>
-            <div class="exchange-body">
-              <div class="form-group">
-                <label>API Key</label>
-                <input type="password" v-model="config.okx.api_key" placeholder="请输入 API Key" />
-              </div>
-              <div class="form-group">
-                <label>Secret Key</label>
-                <input type="password" v-model="config.okx.api_secret" placeholder="请输入 Secret Key" />
-              </div>
-              <div class="form-group">
-                <label>Passphrase (密码)</label>
-                <input type="password" v-model="config.okx.passphrase" placeholder="请输入 Passphrase" />
-              </div>
-            </div>
-          </div>
-
-          <div v-if="activeExchanges.includes('bybit')" class="exchange-card">
-            <div class="exchange-header">
-              <div class="exchange-info">
-                <img src="https://assets.staticimg.com/cms/media/1FwCPtozpXRpEYCGZojJfRF7O6aw9Vxi0I05yOvmR.png" alt="Bybit" class="exchange-logo" />
-                <h3>Bybit</h3>
-                <span :class="['status-badge', isExchangeConfigured('bybit') ? 'configured' : 'incomplete']">
-                  {{ isExchangeConfigured('bybit') ? '✅ 已配置' : '⚠️ 未完成' }}
-                </span>
-              </div>
-              <button class="remove-exchange-btn" @click="removeExchange('bybit')" title="移除交易所">×</button>
-            </div>
-            <div class="exchange-body">
-              <div class="form-group">
-                <label>API Key</label>
-                <input type="password" v-model="config.bybit.api_key" placeholder="请输入 API Key" />
-              </div>
-              <div class="form-group">
-                <label>Secret Key</label>
-                <input type="password" v-model="config.bybit.api_secret" placeholder="请输入 Secret Key" />
-              </div>
-            </div>
-          </div>
-
-          <div class="add-exchange-card" @click="showExchangeSelectModal = true">
-            <div class="add-plus">+</div>
-            <p>添加交易所</p>
-          </div>
-        </div>
-
-        <div class="actions-footer">
-          <button class="primary-btn" @click="saveConfig">
-            <span>💾</span> 保存更改
-          </button>
-          <button class="secondary-btn" @click="restartBot">
-            <span>🔄</span> 重启机器人
-          </button>
-        </div>
-      </section>
-
-      <section class="settings-section">
-        <div class="section-title">
-          <span class="icon">🔄</span>
-          <h2>同步规则</h2>
-        </div>
-        
-        <div class="sync-items-grid">
-          <div v-for="item in syncItems" :key="item.id" class="sync-card">
-            <div class="sync-header">
-              <div class="sync-title">
-                <h3>{{ item.name }}</h3>
-                <span class="symbol-tag">{{ item.symbol }}</span>
-              </div>
-              <button class="delete-btn" @click="removeSyncItem(item.id)" title="移除规则">×</button>
-            </div>
-            <div class="sync-details">
-              <div class="detail-row">
-                <span class="label">来源</span>
-                <span class="value">{{ item.source }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="label">目标</span>
-                <div class="targets-list">
-                  <span v-for="t in item.targets" :key="t" class="target-tag">{{ t }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="add-sync-card" @click="showAddModal = true">
-            <div class="add-plus">+</div>
-            <p>添加新同步规则</p>
-          </div>
-        </div>
-      </section>
+    <div v-if="loading">
+      <n-grid :cols="2" :x-gap="24" :y-gap="24">
+        <n-grid-item v-for="i in 4" :key="i">
+          <n-skeleton height="200px" border-radius="8px" />
+        </n-grid-item>
+      </n-grid>
     </div>
 
-    <!-- Exchange Selection Modal -->
-    <transition name="modal-fade">
-      <div v-if="showExchangeSelectModal" class="modal-overlay" @click.self="showExchangeSelectModal = false">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3>添加交易所</h3>
-            <button class="close-btn" @click="showExchangeSelectModal = false">×</button>
-          </div>
-          <div class="modal-body">
-            <div class="exchange-selector-grid">
-              <div 
-                class="selector-item" 
-                :class="{ disabled: activeExchanges.includes('binance') }"
-                @click="!activeExchanges.includes('binance') && addExchange('binance')"
-              >
-                <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=040" alt="Binance" />
-                <span>Binance</span>
-                <div v-if="activeExchanges.includes('binance')" class="badge">已添加</div>
-              </div>
-              <div 
-                class="selector-item" 
-                :class="{ disabled: activeExchanges.includes('okx') }"
-                @click="!activeExchanges.includes('okx') && addExchange('okx')"
-              >
-                <img src="https://logo.svgcdn.com/token-branded/okx.svg" alt="OKX" />
-                <span>OKX</span>
-                <div v-if="activeExchanges.includes('okx')" class="badge">已添加</div>
-              </div>
-              <div 
-                class="selector-item" 
-                :class="{ disabled: activeExchanges.includes('bybit') }"
-                @click="!activeExchanges.includes('bybit') && addExchange('bybit')"
-              >
-                <img src="https://assets.staticimg.com/cms/media/1FwCPtozpXRpEYCGZojJfRF7O6aw9Vxi0I05yOvmR.png" alt="Bybit" />
-                <span>Bybit</span>
-                <div v-if="activeExchanges.includes('bybit')" class="badge">已添加</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </transition>
+    <n-space v-else vertical :size="48">
+      <!-- Exchange Section -->
+      <section>
+        <n-space align="center" :size="12" class="mb-4">
+          <n-icon size="24" color="var(--primary-color)"><KeyOutline /></n-icon>
+          <n-text tag="h2" class="text-xl font-bold m-0">交易所配置</n-text>
+        </n-space>
 
-    <!-- Enhanced Modal -->
-    <transition name="modal-fade">
-      <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3>新建同步规则</h3>
-            <button class="close-btn" @click="showAddModal = false">×</button>
-          </div>
-          <div class="modal-body">
-            <div v-if="configuredExchanges.length === 0" class="warning-message">
-              ⚠️ 请先配置至少一个交易所的 API 密钥
+        <n-grid cols="1 s:1 m:2 l:3" responsive="screen" :x-gap="20" :y-gap="20">
+          <n-grid-item v-for="id in activeExchanges" :key="id">
+            <ExchangeCard 
+              v-if="getExchangeById(id)"
+              :exchange="getExchangeById(id)!"
+              v-model="config[id as keyof typeof config]"
+              :is-configured="isExchangeConfigured(id)"
+              @remove="removeExchange(id)"
+            />
+          </n-grid-item>
+          
+          <n-grid-item>
+            <div class="add-card" @click="showExchangeSelectModal = true">
+              <n-icon size="32"><AddOutline /></n-icon>
+              <n-text depth="3">添加交易所</n-text>
             </div>
-            <div class="form-group">
-              <label>规则名称</label>
-              <input v-model="newItem.name" placeholder="例如：BTC 套利" />
+          </n-grid-item>
+        </n-grid>
+
+        <n-space justify="end" :size="16" class="mt-6">
+          <n-button secondary @click="restartBot">
+            <template #icon><n-icon><RefreshOutline /></n-icon></template>
+            重启机器人
+          </n-button>
+          <n-button type="primary" @click="saveConfig">
+            <template #icon><n-icon><SaveOutline /></n-icon></template>
+            保存更改
+          </n-button>
+        </n-space>
+      </section>
+
+      <!-- Sync Rules Section -->
+      <section>
+        <n-space align="center" :size="12" class="mb-4">
+          <n-icon size="24" color="var(--primary-color)"><SyncOutline /></n-icon>
+          <n-text tag="h2" class="text-xl font-bold m-0">同步规则</n-text>
+        </n-space>
+
+        <n-grid cols="1 s:1 m:2 l:4" responsive="screen" :x-gap="20" :y-gap="20">
+          <n-grid-item v-for="item in syncItems" :key="item.id">
+            <SyncRuleCard 
+              :rule="item" 
+              @delete="removeSyncItem(item.id)" 
+            />
+          </n-grid-item>
+          
+          <n-grid-item>
+            <div class="add-card small" @click="showAddModal = true">
+              <n-icon size="24"><AddOutline /></n-icon>
+              <n-text depth="3">添加同步规则</n-text>
             </div>
-            <div class="form-group">
-              <label>交易对</label>
-              <input v-model="newItem.symbol" placeholder="例如：BTC-USDT" />
-            </div>
-            <div class="form-group">
-              <label>来源交易所</label>
-              <div class="exchange-chips">
-                <button 
-                  v-for="ex in availableSources" 
-                  :key="ex.id"
-                  :class="['chip', { active: newItem.source === ex.id }]"
-                  @click="newItem.source = ex.id"
-                >
-                  {{ ex.name }}
-                </button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>目标交易所</label>
-              <div class="exchange-chips">
-                <button 
-                  v-for="ex in filteredTargets" 
-                  :key="ex.id"
-                  :class="['chip', { active: newItem.targets.includes(ex.id) }]"
-                  @click="toggleTarget(ex.id)"
-                >
-                  {{ ex.name }}
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="secondary-btn" @click="showAddModal = false">取消</button>
-            <button class="primary-btn" @click="addSyncItem">创建规则</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+          </n-grid-item>
+        </n-grid>
+      </section>
+    </n-space>
+
+    <!-- Modals -->
+    <AddExchangeModal 
+      v-model:show="showExchangeSelectModal" 
+      :active-exchanges="activeExchanges"
+      @add="addExchange"
+    />
+
+    <AddSyncRuleModal 
+      v-model:show="showAddModal"
+      :configured-exchanges="configuredExchanges"
+      @add="handleAddSyncRule"
+    />
   </div>
 </template>
 
 <style scoped>
-.settings {
-  --warning: #f59e0b;
-  animation: fadeIn 0.4s ease-out;
-}
+.mb-8 { margin-bottom: 2rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
 
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 5rem;
-  color: var(--text-secondary);
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(56, 189, 248, 0.1);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.settings-header {
-  margin-bottom: 2.5rem;
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.server-ip-card {
+.ip-card {
   background: rgba(56, 189, 248, 0.05);
   border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: var(--radius);
-  padding: 0.75rem 1.25rem;
-  min-width: 280px;
-  animation: slideInRight 0.5s ease-out;
 }
 
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.ip-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.ip-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--primary-color);
-  letter-spacing: 0.05em;
-}
-
-.ip-value-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  justify-content: space-between;
-}
-
-.ip-value {
-  font-family: monospace;
-  font-size: 1.1rem;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.copy-ip-btn {
-  background: var(--surface-hover);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 0.4rem 0.75rem;
-  font-size: 0.8rem;
-  height: auto;
-  min-width: 80px;
-}
-
-.copy-ip-btn:hover {
-  background: var(--primary-color);
-  color: #000;
-  border-color: var(--primary-color);
-}
-
-.copy-ip-btn.is-copied {
-  background: var(--success);
-  border-color: var(--success);
-  color: white;
-}
-
-.btn-icon {
-  margin-right: 0.4rem;
-  font-size: 0.9rem;
-}
-
-.subtitle {
-  color: var(--text-secondary);
-  margin-top: 0.5rem;
-}
-
-.settings-section {
-  margin-bottom: 3.5rem;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.section-title h2 {
-  font-size: 1.25rem;
-}
-
-.icon {
-  font-size: 1.5rem;
-}
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.exchange-card {
-  background: var(--surface-color);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  padding: 1.5rem;
-}
-
-.exchange-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.exchange-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.remove-exchange-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1.5rem;
-  cursor: pointer;
-  line-height: 1;
-  transition: var(--transition);
-}
-
-.remove-exchange-btn:hover {
-  color: var(--danger);
-}
-
-.add-exchange-card {
-  border: 2px dashed var(--border-color);
-  border-radius: var(--radius);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-muted);
+.add-card {
+  height: 100%;
   min-height: 200px;
-  transition: var(--transition);
-}
-
-.add-exchange-card:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background: rgba(56, 189, 248, 0.02);
-}
-
-.exchange-selector-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.selector-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  background: var(--surface-hover);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: var(--transition);
-  position: relative;
-}
-
-.selector-item:hover:not(.disabled) {
-  border-color: var(--primary-color);
-  transform: translateY(-4px);
-  background: rgba(56, 189, 248, 0.05);
-}
-
-.selector-item img {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 1rem;
-}
-
-.selector-item span {
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.selector-item.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.selector-item .badge {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  background: var(--success);
-  color: white;
-  font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 1rem;
-  font-weight: 700;
-}
-
-.exchange-logo {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-}
-
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-  letter-spacing: 0.05em;
-}
-
-input[type="password"], 
-input[type="text"], 
-select {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid var(--border-color);
+  border: 2px dashed var(--n-border-color);
   border-radius: 8px;
-  color: var(--text-primary);
-  transition: var(--transition);
-}
-
-input:focus, select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  background: rgba(15, 23, 42, 0.8);
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
-.actions-footer {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-}
-
-.sync-items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-.sync-card {
-  background: var(--surface-color);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  padding: 1.25rem;
-  transition: var(--transition);
-}
-
-.sync-card:hover {
-  border-color: var(--primary-color);
-  transform: translateY(-2px);
-}
-
-.sync-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-
-.sync-title h3 {
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
-}
-
-.symbol-tag {
-  font-size: 0.75rem;
-  color: var(--primary-color);
-  font-weight: 700;
-  font-family: monospace;
-}
-
-.delete-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1.5rem;
-  cursor: pointer;
-  line-height: 1;
-  transition: var(--transition);
-}
-
-.delete-btn:hover {
-  color: var(--danger);
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-  font-size: 0.875rem;
-}
-
-.detail-row .label {
-  color: var(--text-muted);
-}
-
-.detail-row .value {
-  color: var(--text-primary);
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.targets-list {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.target-tag {
-  background: rgba(129, 140, 248, 0.1);
-  color: var(--secondary-color);
-  padding: 0.125rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.add-sync-card {
-  border: 2px dashed var(--border-color);
-  border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--text-muted);
+  transition: all 0.3s ease;
+  background: transparent;
+}
+
+.add-card.small {
   min-height: 140px;
-  transition: var(--transition);
 }
 
-.add-sync-card:hover {
+.add-card:hover {
   border-color: var(--primary-color);
-  color: var(--primary-color);
   background: rgba(56, 189, 248, 0.02);
 }
 
-.add-plus {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-/* Modal Styling */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(15, 23, 42, 0.9);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1.5rem;
-}
-
-.modal-content {
-  background: var(--surface-color);
-  width: 100%;
-  max-width: 500px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-}
-
-.modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.modal-footer {
-  padding: 1.25rem 1.5rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-}
-
-.checkbox-row {
-  display: flex;
-  gap: 1.5rem;
-  margin-top: 0.5rem;
-}
-
-.custom-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.status-badge {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 1rem;
-  font-weight: 700;
-  margin-left: auto;
-}
-
-.status-badge.configured {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.status-badge.incomplete {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--warning);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-.warning-message {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  color: #f59e0b;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.exchange-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.chip {
-  background: var(--surface-hover);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.chip:hover {
-  border-color: var(--primary-color);
+.add-card:hover :deep(.n-text) {
   color: var(--primary-color);
 }
 
-.chip.active {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #000;
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1.5rem;
-  cursor: pointer;
-}
-
-.secondary-btn {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-
-.modal-fade-enter-active, .modal-fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-fade-enter-from, .modal-fade-leave-to {
-  opacity: 0;
-}
-
-@media (max-width: 768px) {
-  .header-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  .server-ip-card {
-    width: 100%;
-    min-width: unset;
-  }
-}
-
-@media (max-width: 640px) {
-  .actions-footer {
-    flex-direction: column;
-  }
-  .actions-footer button {
-    width: 100%;
-  }
-}
+.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.font-bold { font-weight: 700; }
+.m-0 { margin: 0; }
+.uppercase { text-transform: uppercase; }
+.tracking-wider { letter-spacing: 0.05em; }
 </style>
-
