@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://ljswlmwgybqc.ap-southeast-1.clawcloudrun.com/api/:path*"
+      "destination": "http://198.27.81.136:49618/api/:path*"
     },
     {
       "source": "/(.*)",
